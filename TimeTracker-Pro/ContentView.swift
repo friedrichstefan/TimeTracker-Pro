@@ -11,7 +11,6 @@ struct ContentView: View {
     @ObservedObject var timeModel: TimeModel
 
     var body: some View {
-        VStack {
             TabView {
                 SettingsView(timeModel: timeModel)
                     .tabItem { Text("Einstellungen") }
@@ -20,8 +19,7 @@ struct ContentView: View {
                     .tabItem { Text("Große Uhr") }
                     .tag(1)
             }
-            .padding()
-            .frame(width: 360, height: 200)
+            .frame(width: 700, height: 200)
+            .tabViewStyle(.sidebarAdaptable)
         }
-    }
 }
