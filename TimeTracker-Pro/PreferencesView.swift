@@ -7,114 +7,252 @@
 
 import SwiftUI
 
-private enum PrefsTab: Hashable {
-    case settings
-    case largeClock
+enum PrefsTab: String, CaseIterable, Hashable {  // private entfernt
+    case timerDetails = "timerDetails"
+    case chronik = "chronik"
+    case settings = "settings"
+    
+    var title: String {
+        switch self {
+        case .timerDetails: return "Timer-Details"
+        case .chronik: return "Tagesverlauf"
+        case .settings: return "Einstellungen"
+        }
+    }
+    
+    var systemImage: String {
+        switch self {
+        case .timerDetails: return "timer"
+        case .chronik: return "clock.arrow.circlepath"
+        case .settings: return "gearshape"
+        }
+    }
 }
 
 struct PreferencesView: View {
     @ObservedObject var timeModel: TimeModel
-    @State private var selection: PrefsTab? = .settings
+    @State private var selectedTab: PrefsTab = .timerDetails
 
     var body: some View {
-        NavigationView {
-            // Sidebar
-            List(selection: $selection) {
-                NavigationLink(
-                    destination: SettingsPane(timeModel: timeModel),
-                    tag: PrefsTab.settings,
-                    selection: $selection
-                ) {
-                    Label("Einstellungen", systemImage: "gearshape")
+        NavigationSplitView {
+            // Moderne Sidebar
+            VStack(spacing: 0) {
+                // Header
+                VStack(spacing: 8) {
+                    Text("TimeTracker Pro")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.primary)
+                    
+                    Text("Einstellungen")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
-                .tag(PrefsTab.settings)
-
-                NavigationLink(
-                    destination: LargeClockPane(timeModel: timeModel),
-                    tag: PrefsTab.largeClock,
-                    selection: $selection
-                ) {
-                    Label("Große Uhr", systemImage: "clock")
+                .padding(.top, 20)
+                .padding(.bottom, 16)
+                
+                // Navigation Items
+                VStack(spacing: 4) {
+                    ForEach(PrefsTab.allCases, id: \.self) { tab in
+                        ModernSidebarItem(
+                            tab: tab,
+                            isSelected: selectedTab == tab
+                        ) {
+                            selectedTab = tab
+                        }
+                    }
                 }
-                .tag(PrefsTab.largeClock)
+                .padding(.horizontal, 12)
+                
+                Spacer()
             }
-            .listStyle(SidebarListStyle())
-            .frame(minWidth: 160) // Sidebar-Breite
-            .toolbar {
-                // Optional: hier könnten Toolbar-Buttons eingefügt werden
+            .frame(minWidth: 200)
+            .background(.regularMaterial)
+        } detail: {
+            // Detail View mit modernem Container
+            ModernDetailContainer {
+                Group {
+                    switch selectedTab {
+                    case .timerDetails:
+                        TimerDetailView(timeModel: timeModel)
+                    case .chronik:
+                        ChronikView(timeModel: timeModel)
+                    case .settings:
+                        SettingsPane(timeModel: timeModel)
+                    }
+                }
             }
-
-            // Standard-Detail-View (wird angezeigt, wenn kein Eintrag gewählt)
-            SettingsPane(timeModel: timeModel)
         }
-        .frame(minWidth: 520, minHeight: 320)
+        .frame(minWidth: 800, minHeight: 550)
     }
 }
 
-// MARK: - Sidebar Detail Views
+// MARK: - Moderne UI Komponenten
 
-private struct SettingsPane: View {
-    @ObservedObject var timeModel: TimeModel
-
+struct ModernSidebarItem: View {
+    let tab: PrefsTab
+    let isSelected: Bool
+    let action: () -> Void
+    
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Allgemeine Zeiteinstellungen")
-                .font(.title2)
-                .padding(.bottom, 4)
-
-            Toggle("Sekunden anzeigen", isOn: $timeModel.showSeconds)
-            Toggle("24‑Stunden‑Format", isOn: $timeModel.use24Hour)
-            Toggle("Datum anzeigen", isOn: $timeModel.showDate)
-
-            Spacer()
-
-            HStack {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: tab.systemImage)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(isSelected ? .white : .primary)
+                    .frame(width: 18)
+                
+                Text(tab.title)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(isSelected ? .white : .primary)
+                
                 Spacer()
-                Button("Schließen") {
-                    closeWindow()
-                }
             }
+            .frame(maxWidth: .infinity)
+            .frame(height: 36)
+            .padding(.horizontal, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isSelected ? .blue : .clear)
+            )
         }
-        .padding()
-    }
-
-    private func closeWindow() {
-        NSApp.keyWindow?.performClose(nil)
+        .buttonStyle(PlainButtonStyle())
+        .animation(.easeInOut(duration: 0.2), value: isSelected)
     }
 }
 
-private struct LargeClockPane: View {
+struct ModernDetailContainer<Content: View>: View {
+    let content: Content
+    
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            content
+        }
+        .background(Color(NSColor.windowBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 2)
+        .padding(16)
+        .background(Color(NSColor.controlBackgroundColor))
+    }
+}
+
+// MARK: - Detail Views
+
+struct SettingsPane: View {
     @ObservedObject var timeModel: TimeModel
 
     var body: some View {
-        VStack(spacing: 12) {
-            // Live‑Vorschau der großen Uhr
-            LargeClockView(timeModel: timeModel)
-                .frame(minHeight: 160)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                // Header
+                ModernSectionHeader(
+                    title: "Allgemeine Einstellungen",
+                    subtitle: "Konfiguration der Uhr-Anzeige"
+                )
 
-            // Slider zur Anpassung der Schriftgröße
-            HStack {
-                Text("Schriftgröße")
-                Slider(value: $timeModel.largeClockFontSize, in: 18...120, step: 1)
-                    .frame(minWidth: 220)
-                Text("\(Int(timeModel.largeClockFontSize)) pt")
-                    .frame(width: 60, alignment: .trailing)
-            }
-            .padding(.horizontal)
-
-            Spacer()
-
-            HStack {
-                Spacer()
-                Button("Schließen") {
-                    closeWindow()
+                // Settings Card
+                ModernCard {
+                    VStack(alignment: .leading, spacing: 20) {
+                        Text("Zeitanzeige")
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                        
+                        VStack(alignment: .leading, spacing: 16) {
+                            ModernToggle(
+                                title: "Sekunden anzeigen",
+                                subtitle: "Zeigt Sekunden in der Zeitanzeige",
+                                isOn: $timeModel.showSeconds
+                            )
+                            
+                            ModernToggle(
+                                title: "24-Stunden-Format",
+                                subtitle: "Verwendet 24h statt 12h Format",
+                                isOn: $timeModel.use24Hour
+                            )
+                            
+                            ModernToggle(
+                                title: "Datum anzeigen",
+                                subtitle: "Zeigt das aktuelle Datum an",
+                                isOn: $timeModel.showDate
+                            )
+                        }
+                    }
                 }
             }
+            .padding(24)
         }
-        .padding()
     }
-// test ob das geht
-    private func closeWindow() {
-        NSApp.keyWindow?.performClose(nil)
+}
+
+// MARK: - Moderne UI Komponenten
+
+struct ModernSectionHeader: View {
+    let title: String
+    let subtitle: String
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.largeTitle)
+                .fontWeight(.bold)
+                .foregroundStyle(.primary)
+            
+            Text(subtitle)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+struct ModernCard<Content: View>: View {
+    let content: Content
+    
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            content
+        }
+        .padding(20)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(.quaternary, lineWidth: 0.5)
+        )
+    }
+}
+
+struct ModernToggle: View {
+    let title: String
+    let subtitle: String
+    @Binding var isOn: Bool
+    
+    var body: some View {
+        HStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.primary)
+                
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+            
+            Spacer()
+            
+            Toggle("", isOn: $isOn)
+                .toggleStyle(SwitchToggleStyle())
+        }
+        .padding(.vertical, 4)
     }
 }

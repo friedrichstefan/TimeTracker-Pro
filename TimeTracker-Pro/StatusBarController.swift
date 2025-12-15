@@ -99,7 +99,7 @@ final class StatusBarController {
         menu.addItem(NSMenuItem.separator())
         
         // Detaills…
-        let detailItem = NSMenuItem(title: "Detaills…", action: #selector(handleOpenPreferences(_:)), keyEquivalent: ",")
+        let detailItem = NSMenuItem(title: "Details…", action: #selector(handleOpenPreferences(_:)), keyEquivalent: ",")
         detailItem.target = self
         menu.addItem(detailItem)
 

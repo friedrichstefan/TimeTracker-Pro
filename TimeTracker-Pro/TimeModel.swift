@@ -1,7 +1,14 @@
+//
+//  TimeModel.swift
+//  TimeTracker-Pro
+//
+//  Created by Friedrich, Stefan on 13.12.25.
+//
+
 import Foundation
 import Combine
 
-enum TimerCategory: String, CaseIterable {
+enum TimerCategory: String, CaseIterable, Codable {
     case work = "work"
     case coffee = "coffee"
     case lunch = "lunch"
@@ -31,6 +38,27 @@ enum TimerCategory: String, CaseIterable {
     }
 }
 
+struct TimerSession: Identifiable, Codable {
+    let id: UUID  // KORRIGIERT: Ohne Initialwert
+    let category: TimerCategory
+    let startTime: Date
+    let endTime: Date?
+    let duration: Int // in Sekunden
+    
+    var isActive: Bool {
+        return endTime == nil
+    }
+    
+    // HINZUGEFÜGT: Custom initializer
+    init(category: TimerCategory, startTime: Date, endTime: Date?, duration: Int) {
+        self.id = UUID()
+        self.category = category
+        self.startTime = startTime
+        self.endTime = endTime
+        self.duration = duration
+    }
+}
+
 final class TimeModel: ObservableObject {
     @Published var date: Date = Date()
     @Published var timeString: String = ""
@@ -53,6 +81,10 @@ final class TimeModel: ObservableObject {
     @Published var lunchSeconds: Int = 0
     @Published var activeCategory: TimerCategory? = nil
     @Published var isTimerRunning: Bool = false
+    
+    // Chronik
+    @Published var timerSessions: [TimerSession] = []
+    private var currentSession: TimerSession?
 
     private var clockTimer: Timer?
     private var countdownTimer: Timer?
@@ -66,6 +98,7 @@ final class TimeModel: ObservableObject {
         static let workSeconds = "TimeTracker_WorkSeconds"
         static let coffeeSeconds = "TimeTracker_CoffeeSeconds"
         static let lunchSeconds = "TimeTracker_LunchSeconds"
+        static let timerSessions = "TimeTracker_TimerSessions"
     }
 
     init() {
@@ -86,6 +119,9 @@ final class TimeModel: ObservableObject {
         workSeconds = defaults.integer(forKey: Keys.workSeconds)
         coffeeSeconds = defaults.integer(forKey: Keys.coffeeSeconds)
         lunchSeconds = defaults.integer(forKey: Keys.lunchSeconds)
+        
+        // Lade Timer-Sessions
+        loadTimerSessions()
 
         setupFormatter()
         startClockTimer()
@@ -101,6 +137,14 @@ final class TimeModel: ObservableObject {
         stopTimer() // Stoppe aktuellen Timer falls läuft
         activeCategory = category
         isTimerRunning = true
+        
+        // Erstelle neue Session
+        currentSession = TimerSession(
+            category: category,
+            startTime: Date(),
+            endTime: nil,
+            duration: 0
+        )
         
         countdownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             guard let self = self else { return }
@@ -122,10 +166,34 @@ final class TimeModel: ObservableObject {
     }
     
     func stopTimer() {
+        guard let session = currentSession else {
+            isTimerRunning = false
+            activeCategory = nil
+            countdownTimer?.invalidate()
+            countdownTimer = nil
+            return
+        }
+        
         isTimerRunning = false
         activeCategory = nil
         countdownTimer?.invalidate()
         countdownTimer = nil
+        
+        // Beende aktuelle Session
+        let endTime = Date()
+        let duration = Int(endTime.timeIntervalSince(session.startTime))
+        
+        let completedSession = TimerSession(
+            category: session.category,
+            startTime: session.startTime,
+            endTime: endTime,
+            duration: duration
+        )
+        
+        timerSessions.insert(completedSession, at: 0) // Neueste zuerst
+        currentSession = nil
+        
+        saveTimerSessions()
     }
     
     func resetAllTimers() {
@@ -141,7 +209,6 @@ final class TimeModel: ObservableObject {
     
     func getCurrentTimerSeconds() -> Int {
         guard let category = activeCategory else {
-            // Wenn kein Timer läuft, zeige den größten Wert
             return max(workSeconds, coffeeSeconds, lunchSeconds)
         }
         
@@ -150,6 +217,66 @@ final class TimeModel: ObservableObject {
         case .coffee: return coffeeSeconds
         case .lunch: return lunchSeconds
         }
+    }
+    
+    // Erweiterte Chronik-Funktionen
+    func getSessionsForDate(_ date: Date) -> [TimerSession] {
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: date)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+        
+        return timerSessions.filter { session in
+            session.startTime >= startOfDay && session.startTime < endOfDay
+        }.sorted { $0.startTime > $1.startTime } // Neueste zuerst
+    }
+    
+    func getTotalTimeForDate(_ date: Date) -> Int {
+        return getSessionsForDate(date).reduce(0) { $0 + $1.duration }
+    }
+    
+    func getWorkTimeForDate(_ date: Date) -> Int {
+        return getSessionsForDate(date)
+            .filter { $0.category == .work }
+            .reduce(0) { $0 + $1.duration }
+    }
+    
+    func getBreakTimeForDate(_ date: Date) -> Int {
+        return getSessionsForDate(date)
+            .filter { $0.category == .coffee || $0.category == .lunch }
+            .reduce(0) { $0 + $1.duration }
+    }
+    
+    func getDaysWithSessions() -> [Date] {
+        let calendar = Calendar.current
+        let uniqueDays = Set(timerSessions.map { calendar.startOfDay(for: $0.startTime) })
+        return Array(uniqueDays).sorted(by: >)
+    }
+    
+    func clearSessionsForDate(_ date: Date) {
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: date)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+        
+        timerSessions = timerSessions.filter { session in
+            !(session.startTime >= startOfDay && session.startTime < endOfDay)
+        }
+        
+        saveTimerSessions()
+    }
+    
+    // Chronik-Funktionen
+    private func loadTimerSessions() {
+        guard let data = UserDefaults.standard.data(forKey: Keys.timerSessions),
+              let sessions = try? JSONDecoder().decode([TimerSession].self, from: data) else {
+            timerSessions = []
+            return
+        }
+        timerSessions = sessions
+    }
+    
+    private func saveTimerSessions() {
+        guard let data = try? JSONEncoder().encode(timerSessions) else { return }
+        UserDefaults.standard.set(data, forKey: Keys.timerSessions)
     }
 
     // Uhrzeit-Logik (für interne Views)

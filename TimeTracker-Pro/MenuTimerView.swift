@@ -49,7 +49,7 @@ struct MenuTimerView: View {
                 }
             }
             .padding(.horizontal, 16)
-            .frame(height: 90) // ERHÖHT von 70 auf 90
+            .frame(height: 90)
             
             // Stopp/Reset Bereich
             VStack(spacing: 8) {
@@ -68,7 +68,7 @@ struct MenuTimerView: View {
                     Button("Zurücksetzen") {
                         timeModel.resetAllTimers()
                     }
-                    .buttonStyle(ResetButtonStyle())
+                    .buttonStyle(MenuResetButtonStyle()) // UMBENANNT
                 } else {
                     // Unsichtbarer Platzhalter
                     Text("")
@@ -79,7 +79,7 @@ struct MenuTimerView: View {
             .frame(maxWidth: .infinity)
             .padding(.top, 8)
         }
-        .frame(width: 360, height: 210) // Angepasst für größere Buttons
+        .frame(width: 360, height: 210)
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 8)
         .shadow(color: .black.opacity(0.05), radius: 1, x: 0, y: 1)
@@ -122,14 +122,14 @@ struct CategoryTimerButton: View {
                 timeModel.startTimer(for: category)
             }
         }) {
-            VStack(spacing: 8) { // Mehr Spacing zwischen Elementen
+            VStack(spacing: 8) {
                 // Symbol
                 Text(category.symbol)
-                    .font(.system(size: 22)) // Größeres Symbol
+                    .font(.system(size: 22))
                 
                 // Name
                 Text(category.displayName)
-                    .font(.system(size: 12, weight: .medium)) // Etwas größere Schrift
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(isActive ? .white : .primary)
                     .multilineTextAlignment(.center)
                     .lineLimit(1)
@@ -141,7 +141,7 @@ struct CategoryTimerButton: View {
                     .foregroundStyle(isActive ? .white.opacity(0.9) : .secondary)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 74) // ERHÖHT von 54 auf 74
+            .frame(height: 74)
         }
         .buttonStyle(CategoryButtonStyle(isActive: isActive, category: category))
     }
@@ -166,7 +166,7 @@ struct CategoryTimerButton: View {
     }
 }
 
-// MARK: - Button Styles (unverändert)
+// MARK: - Button Styles
 
 struct CategoryButtonStyle: ButtonStyle {
     let isActive: Bool
@@ -229,7 +229,8 @@ struct StoppButtonStyle: ButtonStyle {
     }
 }
 
-struct ResetButtonStyle: ButtonStyle {
+// UMBENANNT von ResetButtonStyle zu MenuResetButtonStyle
+struct MenuResetButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 12, weight: .regular))
