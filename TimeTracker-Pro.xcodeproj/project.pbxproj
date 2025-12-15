@@ -29,9 +29,22 @@
 		393308E82EEDC17F0090226E /* TimeTracker-ProUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "TimeTracker-ProUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		398BDBBD2EF0AAA40088DADA /* Exceptions for "TimeTracker-Pro" folder in "TimeTracker-Pro" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 393308D02EEDC17D0090226E /* TimeTracker-Pro */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		393308D32EEDC17D0090226E /* TimeTracker-Pro */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				398BDBBD2EF0AAA40088DADA /* Exceptions for "TimeTracker-Pro" folder in "TimeTracker-Pro" target */,
+			);
 			path = "TimeTracker-Pro";
 			sourceTree = "<group>";
 		};
@@ -399,6 +412,8 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "TimeTracker-Pro/Info.plist";
+				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -429,6 +444,8 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "TimeTracker-Pro/Info.plist";
+				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

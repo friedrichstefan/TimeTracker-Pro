@@ -1,3 +1,10 @@
+//
+//  StatusBarController.swift
+//  TimeTracker-Pro
+//
+//  Created by Friedrich, Stefan on 13.12.25.
+//
+
 import AppKit
 import SwiftUI
 import Combine
@@ -66,7 +73,7 @@ final class StatusBarController {
     private func updateStatusBarTitle() {
         if let button = statusItem.button {
             let seconds = timeModel.getCurrentTimerSeconds()
-            let timerText = formatTimerString(seconds)
+            let timerText = seconds.formatAsTimerDisplay() // ✅ Neue Extension verwenden
             
             // System-Status-Indikator
             var statusIndicator = ""
@@ -105,18 +112,6 @@ final class StatusBarController {
             return .coffee
         } else {
             return .lunch
-        }
-    }
-    
-    private func formatTimerString(_ seconds: Int) -> String {
-        let hours = seconds / 3600
-        let minutes = (seconds % 3600) / 60
-        let secs = seconds % 60
-        
-        if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, minutes, secs)
-        } else {
-            return String(format: "%02d:%02d", minutes, secs)
         }
     }
     

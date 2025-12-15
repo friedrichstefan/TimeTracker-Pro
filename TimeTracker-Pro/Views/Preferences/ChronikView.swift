@@ -34,50 +34,10 @@ struct ChronikView: View {
                     subtitle: "Chronik deiner Timer-Aktivitäten"
                 )
                 
-                // Datum-Auswahl mit mehr Platz
-                HStack(spacing: 24) {
-                    Button(action: previousDay) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .medium))
-                    }
-                    .buttonStyle(DateNavigationButtonStyle())
-                    
-                    VStack(spacing: 6) {
-                        Text(formatSelectedDate())
-                            .font(.headline)
-                            .fontWeight(.semibold)
-                        
-                        if isToday {
-                            Text("Heute")
-                                .font(.caption)
-                                .foregroundStyle(.blue)
-                                .textCase(.uppercase)
-                                .tracking(0.5)
-                        } else {
-                            Text(formatWeekday())
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .frame(minWidth: 140)
-                    
-                    Button(action: nextDay) {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 16, weight: .medium))
-                    }
-                    .buttonStyle(DateNavigationButtonStyle())
-                    .disabled(Calendar.current.isDateInToday(selectedDate))
-                    
-                    Spacer()
-                    
-                    // Heute-Button
-                    if !isToday {
-                        Button("Heute") {
-                            selectedDate = Date()
-                        }
-                        .buttonStyle(TodayButtonStyle())
-                    }
-                }
+                DateNavigationHeader(
+                    selectedDate: $selectedDate,
+                    isToday: isToday
+                )
             }
             .padding(.horizontal, 24)
             .padding(.top, 24)
@@ -93,61 +53,78 @@ struct ChronikView: View {
                     )
                     
                     // Statistik-Karten
-                    HStack(spacing: 20) {
-                        StatisticCard(
-                            title: "Gesamtzeit",
-                            value: formatTime(totalTimeForDate),
-                            color: .primary,
-                            icon: "clock"
-                        )
-                        
-                        StatisticCard(
-                            title: "Arbeitszeit",
-                            value: formatTime(workTimeForDate),
-                            color: .blue,
-                            icon: "briefcase"
-                        )
-                        
-                        StatisticCard(
-                            title: "Pausenzeit",
-                            value: formatTime(breakTimeForDate),
-                            color: .orange,
-                            icon: "cup.and.saucer"
-                        )
-                    }
+                    StatisticCardsRow(
+                        totalTime: totalTimeForDate,
+                        workTime: workTimeForDate,
+                        breakTime: breakTimeForDate
+                    )
                     
                     // Timeline
-                    ModernCard {
-                        VStack(alignment: .leading, spacing: 16) {
-                            HStack {
-                                Text("Aktivitäten")
-                                    .font(.headline)
-                                
-                                Text("(\(sessionsForSelectedDate.count))")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                                
-                                Spacer()
-                                
-                                if !sessionsForSelectedDate.isEmpty {
-                                    Button("Tag löschen") {
-                                        timeModel.clearSessionsForDate(selectedDate)
-                                    }
-                                    .buttonStyle(ClearButtonStyle())
-                                }
-                            }
-                            
-                            if sessionsForSelectedDate.isEmpty {
-                                EmptyDayView(date: selectedDate, isToday: isToday)
-                            } else {
-                                TimelineView(sessions: sessionsForSelectedDate)
-                            }
+                    TimelineCard(
+                        sessions: sessionsForSelectedDate,
+                        selectedDate: selectedDate,
+                        isToday: isToday,
+                        onClearDay: {
+                            timeModel.clearSessionsForDate(selectedDate)
                         }
-                    }
+                    )
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 16)
                 .padding(.bottom, 24)
+            }
+        }
+    }
+}
+
+// MARK: - Date Navigation Header
+
+private struct DateNavigationHeader: View {
+    @Binding var selectedDate: Date
+    let isToday: Bool
+    
+    var body: some View {
+        HStack(spacing: 24) {
+            Button(action: previousDay) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 16, weight: .medium))
+            }
+            .buttonStyle(DateNavigationButtonStyle())
+            
+            VStack(spacing: 6) {
+                Text(selectedDate.formatSelectedDate())
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                if isToday {
+                    Text("Heute")
+                        .font(.caption)
+                        .foregroundStyle(.blue)
+                        .textCase(.uppercase)
+                        .tracking(0.5)
+                } else {
+                    Text(selectedDate.formatWeekday())
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(minWidth: 140)
+            
+            Button(action: nextDay) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 16, weight: .medium))
+            }
+            .buttonStyle(DateNavigationButtonStyle())
+            .disabled(Calendar.current.isDateInToday(selectedDate))
+            
+            Spacer()
+            
+            // Heute-Button
+            if !isToday {
+                Button("Heute") {
+                    selectedDate = Date()
+                }
+                .buttonStyle(TodayButtonStyle())
             }
         }
     }
@@ -159,34 +136,11 @@ struct ChronikView: View {
     private func nextDay() {
         selectedDate = Calendar.current.date(byAdding: .day, value: 1, to: selectedDate) ?? selectedDate
     }
-    
-    private func formatSelectedDate() -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        return formatter.string(from: selectedDate)
-    }
-    
-    private func formatWeekday() -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEEE"
-        return formatter.string(from: selectedDate)
-    }
-    
-    private func formatTime(_ seconds: Int) -> String {
-        let hours = seconds / 3600
-        let minutes = (seconds % 3600) / 60
-        
-        if hours > 0 {
-            return String(format: "%dh %02dm", hours, minutes)
-        } else if minutes > 0 {
-            return String(format: "%dm", minutes)
-        } else {
-            return "0m"
-        }
-    }
 }
 
-struct WorkTimeSummaryCard: View {
+// MARK: - Work Time Summary Card
+
+private struct WorkTimeSummaryCard: View {
     let todayWorkTime: Int
     let targetWorkTime: Int
     let isToday: Bool
@@ -208,7 +162,7 @@ struct WorkTimeSummaryCard: View {
                     Text(isToday ? "Heutiger Fortschritt" : "Tagesfortschritt")
                         .font(.headline)
                     
-                    Text("Arbeitszeit-Ziel: \(formatTime(targetWorkTime))")
+                    Text("Arbeitszeit-Ziel: \(targetWorkTime.formatAsTime())")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -245,7 +199,7 @@ struct WorkTimeSummaryCard: View {
                     
                     Spacer()
                     
-                    Text(formatTime(todayWorkTime))
+                    Text(todayWorkTime.formatAsTime())
                         .font(.system(.subheadline, design: .monospaced))
                         .fontWeight(.semibold)
                 }
@@ -258,7 +212,7 @@ struct WorkTimeSummaryCard: View {
                         
                         Spacer()
                         
-                        Text(formatTime(remainingTime))
+                        Text(remainingTime.formatAsTime())
                             .font(.system(.subheadline, design: .monospaced))
                             .fontWeight(.semibold)
                             .foregroundStyle(.orange)
@@ -309,20 +263,44 @@ struct WorkTimeSummaryCard: View {
             return .red
         }
     }
+}
+
+// MARK: - Statistic Cards Row
+
+private struct StatisticCardsRow: View {
+    let totalTime: Int
+    let workTime: Int
+    let breakTime: Int
     
-    private func formatTime(_ seconds: Int) -> String {
-        let hours = seconds / 3600
-        let minutes = (seconds % 3600) / 60
-        
-        if hours > 0 {
-            return String(format: "%dh %02dm", hours, minutes)
-        } else {
-            return String(format: "%dm", minutes)
+    var body: some View {
+        HStack(spacing: 20) {
+            StatisticCard(
+                title: "Gesamtzeit",
+                value: totalTime.formatAsTime(),
+                color: .primary,
+                icon: "clock"
+            )
+            
+            StatisticCard(
+                title: "Arbeitszeit",
+                value: workTime.formatAsTime(),
+                color: .blue,
+                icon: "briefcase"
+            )
+            
+            StatisticCard(
+                title: "Pausenzeit",
+                value: breakTime.formatAsTime(),
+                color: .orange,
+                icon: "cup.and.saucer"
+            )
         }
     }
 }
 
-struct StatisticCard: View {
+// MARK: - Statistic Card
+
+private struct StatisticCard: View {
     let title: String
     let value: String
     let color: Color
@@ -364,7 +342,48 @@ struct StatisticCard: View {
     }
 }
 
-struct TimelineView: View {
+// MARK: - Timeline Card
+
+private struct TimelineCard: View {
+    let sessions: [TimerSession]
+    let selectedDate: Date
+    let isToday: Bool
+    let onClearDay: () -> Void
+    
+    var body: some View {
+        ModernCard {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Text("Aktivitäten")
+                        .font(.headline)
+                    
+                    Text("(\(sessions.count))")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    
+                    Spacer()
+                    
+                    if !sessions.isEmpty {
+                        Button("Tag löschen") {
+                            onClearDay()
+                        }
+                        .buttonStyle(ClearButtonStyle())
+                    }
+                }
+                
+                if sessions.isEmpty {
+                    EmptyDayView(date: selectedDate, isToday: isToday)
+                } else {
+                    TimelineView(sessions: sessions)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Timeline View
+
+private struct TimelineView: View {
     let sessions: [TimerSession]
     @Environment(\.colorScheme) var colorScheme
     
@@ -380,7 +399,9 @@ struct TimelineView: View {
     }
 }
 
-struct TimelineRowView: View {
+// MARK: - Timeline Row View
+
+private struct TimelineRowView: View {
     let session: TimerSession
     let isLast: Bool
     @Environment(\.colorScheme) var colorScheme
@@ -390,10 +411,10 @@ struct TimelineRowView: View {
             // Timeline-Punkt und Linie
             VStack(spacing: 0) {
                 Circle()
-                    .fill(colorForCategory(session.category))
+                    .fill(session.category.color)
                     .frame(width: 12, height: 12)
                     .shadow(
-                        color: colorForCategory(session.category).opacity(colorScheme == .dark ? 0.6 : 0.3),
+                        color: session.category.color.opacity(colorScheme == .dark ? 0.6 : 0.3),
                         radius: colorScheme == .dark ? 3 : 2,
                         x: 0,
                         y: 1
@@ -419,7 +440,7 @@ struct TimelineRowView: View {
                             .fontWeight(.medium)
                         
                         HStack(spacing: 6) {
-                            Text(formatTimeOnly(session.startTime))
+                            Text(session.startTime.formatTimeOnly())
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                             
@@ -428,7 +449,7 @@ struct TimelineRowView: View {
                                 .foregroundStyle(.secondary)
                             
                             if let endTime = session.endTime {
-                                Text(formatTimeOnly(endTime))
+                                Text(endTime.formatTimeOnly())
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             } else {
@@ -443,15 +464,15 @@ struct TimelineRowView: View {
                     Spacer()
                     
                     // Dauer
-                    Text(formatDuration(session.duration))
+                    Text(session.duration.formatAsDuration())
                         .font(.system(.caption, design: .monospaced))
                         .fontWeight(.medium)
                         .foregroundStyle(.white)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
-                        .background(colorForCategory(session.category), in: Capsule())
+                        .background(session.category.color, in: Capsule())
                         .shadow(
-                            color: colorForCategory(session.category).opacity(colorScheme == .dark ? 0.5 : 0.3),
+                            color: session.category.color.opacity(colorScheme == .dark ? 0.5 : 0.3),
                             radius: colorScheme == .dark ? 2 : 1,
                             x: 0,
                             y: 1
@@ -464,36 +485,11 @@ struct TimelineRowView: View {
         }
         .padding(.vertical, 8)
     }
-    
-    private func colorForCategory(_ category: TimerCategory) -> Color {
-        switch category {
-        case .work: return .blue
-        case .coffee: return .orange
-        case .lunch: return .green
-        }
-    }
-    
-    private func formatTimeOnly(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
-    }
-    
-    private func formatDuration(_ seconds: Int) -> String {
-        let hours = seconds / 3600
-        let minutes = (seconds % 3600) / 60
-        
-        if hours > 0 {
-            return String(format: "%dh %02dm", hours, minutes)
-        } else if minutes > 0 {
-            return String(format: "%dm", minutes)
-        } else {
-            return "< 1m"
-        }
-    }
 }
 
-struct EmptyDayView: View {
+// MARK: - Empty Day View
+
+private struct EmptyDayView: View {
     let date: Date
     let isToday: Bool
     @Environment(\.colorScheme) var colorScheme
@@ -518,76 +514,9 @@ struct EmptyDayView: View {
     }
 }
 
-// MARK: - Button Styles
+// MARK: - Preview
 
-struct DateNavigationButtonStyle: ButtonStyle {
-    @Environment(\.colorScheme) var colorScheme
-    
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .foregroundStyle(configuration.isPressed ? .blue : .primary)
-            .frame(width: 32, height: 32)
-            .background(
-                Circle()
-                    .fill(configuration.isPressed ? Color.blue.opacity(0.1) : Color.primary.opacity(colorScheme == .dark ? 0.08 : 0.05))
-            )
-            .scaleEffect(configuration.isPressed ? 0.9 : 1.0)
-            .shadow(
-                color: .black.opacity(colorScheme == .dark ? 0.3 : 0.1),
-                radius: colorScheme == .dark ? 3 : 1,
-                x: 0,
-                y: 1
-            )
-            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
-    }
-}
-
-struct TodayButtonStyle: ButtonStyle {
-    @Environment(\.colorScheme) var colorScheme
-    
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 13, weight: .medium))
-            .foregroundStyle(.blue)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(configuration.isPressed ? Color.blue.opacity(0.1) : Color.clear)
-                    .stroke(Color.blue.opacity(0.5), lineWidth: 1)
-            )
-            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
-            .shadow(
-                color: .blue.opacity(colorScheme == .dark ? 0.4 : 0.2),
-                radius: colorScheme == .dark ? 2 : 1,
-                x: 0,
-                y: 1
-            )
-            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
-    }
-}
-
-struct ClearButtonStyle: ButtonStyle {
-    @Environment(\.colorScheme) var colorScheme
-    
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 12, weight: .regular))
-            .foregroundStyle(.red)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(configuration.isPressed ? Color.red.opacity(0.1) : Color.clear)
-                    .stroke(Color.red.opacity(0.3), lineWidth: 0.5)
-            )
-            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
-            .shadow(
-                color: .red.opacity(colorScheme == .dark ? 0.4 : 0.2),
-                radius: colorScheme == .dark ? 2 : 1,
-                x: 0,
-                y: 1
-            )
-            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
-    }
+#Preview {
+    ChronikView(timeModel: TimeModel())
+        .frame(width: 800, height: 600)
 }

@@ -2,19 +2,12 @@
 //  SystemStateMonitor.swift
 //  TimeTracker-Pro
 //
-//  Created by Friedrich, Stefan on 13.12.25.
+//  Created by Friedrich, Stefan on 15.12.25.
 //
 
 import Foundation
 import Combine
 import AppKit
-import UserNotifications
-
-enum AutoPauseReason {
-    case coffee      // Kurze Pause (< Mittagessen-Schwellwert)
-    case lunch       // Lange Pause (> Mittagessen-Schwellwert)
-    case ignored     // Zu kurz (< Mindestdauer)
-}
 
 final class SystemStateMonitor: ObservableObject {
     @Published var isLocked = false

@@ -1,3 +1,10 @@
+//
+//  MenuTimerView.swift
+//  TimeTracker-Pro
+//
+//  Created by Friedrich, Stefan on 13.12.25.
+//
+
 import SwiftUI
 
 struct MenuTimerView: View {
@@ -25,11 +32,11 @@ struct MenuTimerView: View {
                     if let activeCategory = timeModel.activeCategory, timeModel.isTimerRunning {
                         Text(activeCategory.symbol)
                             .font(.system(size: 13))
-                        Text(formatTimerTime(timeModel.getCurrentTimerSeconds()))
+                        Text(timeModel.getCurrentTimerSeconds().formatAsTimerDisplay()) // ✅ Extension verwenden
                             .font(.system(size: 17, weight: .medium, design: .monospaced))
                             .foregroundStyle(.primary)
                     } else {
-                        Text(formatTimerTime(timeModel.getCurrentTimerSeconds()))
+                        Text(timeModel.getCurrentTimerSeconds().formatAsTimerDisplay()) // ✅ Extension verwenden
                             .font(.system(size: 17, weight: .medium, design: .monospaced))
                             .foregroundStyle(.secondary)
                     }
@@ -55,7 +62,7 @@ struct MenuTimerView: View {
                         
                         Spacer()
                         
-                        Text("\(formatTime(todayWorkTime)) / \(formatTime(targetWorkTime))")
+                        Text("\(todayWorkTime.formatAsTime()) / \(targetWorkTime.formatAsTime())") // ✅ Extension verwenden
                             .font(.system(.caption, design: .monospaced))
                             .fontWeight(.medium)
                     }
@@ -83,7 +90,7 @@ struct MenuTimerView: View {
                             }
                         } else {
                             let remaining = targetWorkTime - todayWorkTime
-                            Text("noch \(formatTime(remaining))")
+                            Text("noch \(remaining.formatAsTime())") // ✅ Extension verwenden
                                 .font(.caption2)
                                 .foregroundStyle(.orange)
                         }
@@ -137,29 +144,6 @@ struct MenuTimerView: View {
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(color: .black.opacity(colorScheme == .dark ? 0.3 : 0.1), radius: 20, x: 0, y: 8)
         .shadow(color: .black.opacity(colorScheme == .dark ? 0.1 : 0.05), radius: 1, x: 0, y: 1)
-    }
-    
-    private func formatTimerTime(_ seconds: Int) -> String {
-        let hours = seconds / 3600
-        let minutes = (seconds % 3600) / 60
-        let secs = seconds % 60
-        
-        if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, minutes, secs)
-        } else {
-            return String(format: "%02d:%02d", minutes, secs)
-        }
-    }
-    
-    private func formatTime(_ seconds: Int) -> String {
-        let hours = seconds / 3600
-        let minutes = (seconds % 3600) / 60
-        
-        if hours > 0 {
-            return String(format: "%dh %02dm", hours, minutes)
-        } else {
-            return String(format: "%dm", minutes)
-        }
     }
 }
 
@@ -243,7 +227,7 @@ struct CategoryTimerButton: View {
                     .minimumScaleFactor(0.8)
                 
                 // Zeit
-                Text(formatTime(categorySeconds))
+                Text(categorySeconds.formatAsTime()) // ✅ Extension verwenden
                     .font(.system(size: 10, weight: .regular, design: .monospaced))
                     .foregroundStyle(isActive ? .white.opacity(0.9) : .secondary)
             }
@@ -251,17 +235,6 @@ struct CategoryTimerButton: View {
             .frame(height: 74)
         }
         .buttonStyle(CategoryButtonStyle(isActive: isActive, category: category))
-    }
-    
-    private func formatTime(_ seconds: Int) -> String {
-        let hours = seconds / 3600
-        let minutes = (seconds % 3600) / 60
-        
-        if hours > 0 {
-            return String(format: "%dh %02dm", hours, minutes)
-        } else {
-            return String(format: "%02d:%02d", minutes, seconds % 60)
-        }
     }
 }
 
@@ -291,7 +264,7 @@ struct CategoryButtonStyle: ButtonStyle {
     
     private func backgroundColorForState(_ isPressed: Bool) -> Color {
         if isActive {
-            return accentColor()
+            return category.color // ✅ Extension aus Models.swift verwenden
         } else if isPressed {
             return Color.primary.opacity(colorScheme == .dark ? 0.2 : 0.15)
         } else {
@@ -300,15 +273,7 @@ struct CategoryButtonStyle: ButtonStyle {
     }
     
     private func shadowColorForState() -> Color {
-        return isActive ? accentColor().opacity(colorScheme == .dark ? 0.6 : 0.4) : Color.clear
-    }
-    
-    private func accentColor() -> Color {
-        switch category {
-        case .work: return .blue
-        case .coffee: return .orange
-        case .lunch: return .green
-        }
+        return isActive ? category.color.opacity(colorScheme == .dark ? 0.6 : 0.4) : Color.clear // ✅ Extension verwenden
     }
 }
 

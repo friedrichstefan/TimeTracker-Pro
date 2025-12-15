@@ -1,10 +1,3 @@
-//
-//  AnalyseView.swift
-//  TimeTracker-Pro
-//
-//  Created by Friedrich, Stefan on 13.12.25.
-//
-
 import SwiftUI
 import Charts
 import Foundation
@@ -30,149 +23,99 @@ struct AnalyseView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Header
-            VStack(spacing: 16) {
-                ModernSectionHeader(
-                    title: "App-Analyse",
-                    subtitle: "Verwendete Apps während der Timer-Sessions"
-                )
-                
-                // Controls
-                HStack(spacing: 16) {
-                    // Datum-Navigation
-                    HStack(spacing: 12) {
-                        Button(action: previousDay) {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 14, weight: .medium))
-                        }
-                        .buttonStyle(AnalyseDateNavigationButtonStyle())
-                        
-                        VStack(spacing: 5) {
-                            Text(formatSelectedDate())
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                            
-                            if isToday {
-                                Text("Heute")
-                                    .font(.caption2)
-                                    .foregroundStyle(.blue)
-                                    .textCase(.uppercase)
-                            }
-                        }
-                        .frame(minWidth: 100)
-                        
-                        Button(action: nextDay) {
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 14, weight: .medium))
-                        }
-                        .buttonStyle(AnalyseDateNavigationButtonStyle())
-                        .disabled(isToday)
-                    }
-                    
-                    Spacer()
-                    
-                    // Kategorie-Picker
-                    Picker("Kategorie", selection: $selectedCategory) {
-                        ForEach(TimerCategory.allCases, id: \.self) { category in
-                            HStack {
-                                Text(category.symbol)
-                                Text(category.displayName)
-                            }
-                            .tag(category)
-                        }
-                    }
-                    .pickerStyle(MenuPickerStyle())
-                    .frame(width: 140)
-                }
-            }
-            .padding(.horizontal, 24)
-            .padding(.top, 24)
+            AnalysisHeader(
+                selectedDate: $selectedDate,
+                selectedCategory: $selectedCategory,
+                isToday: isToday
+            )
             
             ScrollView {
                 VStack(spacing: 24) {
                     if !timeModel.isAppTrackingEnabled {
                         // App-Tracking aktivieren
-                        ModernCard {
-                            VStack(spacing: 16) {
-                                Image(systemName: "apps.iphone.badge.plus")
-                                    .font(.system(size: 48))
-                                    .foregroundStyle(.secondary)
-                                
-                                Text("App-Tracking aktivieren")
-                                    .font(.headline)
-                                
-                                Text("Aktiviere das App-Tracking, um zu sehen, welche Apps du während deiner Arbeitszeit verwendest.")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                                    .multilineTextAlignment(.center)
-                                
-                                Button("App-Tracking aktivieren") {
-                                    timeModel.isAppTrackingEnabled = true
-                                }
-                                .buttonStyle(EnableTrackingButtonStyle())
-                            }
-                            .padding(.vertical, 20)
-                        }
+                        EnableTrackingCard(timeModel: timeModel)
                     } else if appUsages.isEmpty {
                         // Keine Daten
-                        ModernCard {
-                            EmptyAnalysisView(
-                                category: selectedCategory,
-                                isToday: isToday
-                            )
-                        }
+                        EmptyAnalysisCard(category: selectedCategory, isToday: isToday)
                     } else {
                         // Chart und Liste
-                        VStack(spacing: 32) {
-                            // Interactive Donut Chart
-                            VStack(spacing: 16) {
-                                Text("App-Verteilung")
-                                    .font(.headline)
-                                
-                                InteractiveDonutChartView(appUsages: appUsages, totalDuration: totalDuration)
-                                    .frame(width: 350, height: 350)
-                                
-                                VStack(spacing: 4) {
-                                    Text("Gesamtzeit")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                        .textCase(.uppercase)
-                                        .tracking(0.5)
-                                    
-                                    Text(formatDuration(totalDuration))
-                                        .font(.system(.title2, design: .monospaced))
-                                        .fontWeight(.semibold)
-                                }
-                            }
-                            
-                            // App-Liste
-                            VStack(alignment: .leading, spacing: 16) {
-                                Text("Detailansicht")
-                                    .font(.headline)
-                                
-                                ModernCard {
-                                    LazyVStack(spacing: 0) {
-                                        ForEach(Array(appUsages.prefix(10).enumerated()), id: \.element.id) { index, usage in
-                                            AppUsageRowWithIconView(
-                                                usage: usage,
-                                                totalDuration: totalDuration,
-                                                rank: index + 1
-                                            )
-                                            
-                                            if index < min(appUsages.count - 1, 9) {
-                                                Divider()
-                                                    .padding(.horizontal, 16)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        AnalysisContentView(
+                            appUsages: appUsages,
+                            totalDuration: totalDuration
+                        )
                     }
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 24)
             }
         }
+    }
+}
+
+// MARK: - Analysis Header
+
+private struct AnalysisHeader: View {
+    @Binding var selectedDate: Date
+    @Binding var selectedCategory: TimerCategory
+    let isToday: Bool
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            ModernSectionHeader(
+                title: "App-Analyse",
+                subtitle: "Verwendete Apps während der Timer-Sessions"
+            )
+            
+            // Controls
+            HStack(spacing: 16) {
+                // Datum-Navigation
+                HStack(spacing: 12) {
+                    Button(action: previousDay) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 14, weight: .medium))
+                    }
+                    .buttonStyle(AnalyseDateNavigationButtonStyle())
+                    
+                    VStack(spacing: 5) {
+                        Text(selectedDate.formatSelectedDate())
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        
+                        if isToday {
+                            Text("Heute")
+                                .font(.caption2)
+                                .foregroundStyle(.blue)
+                                .textCase(.uppercase)
+                        }
+                    }
+                    .frame(minWidth: 100)
+                    
+                    Button(action: nextDay) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .medium))
+                    }
+                    .buttonStyle(AnalyseDateNavigationButtonStyle())
+                    .disabled(isToday)
+                }
+                
+                Spacer()
+                
+                // Kategorie-Picker
+                Picker("Kategorie", selection: $selectedCategory) {
+                    ForEach(TimerCategory.allCases, id: \.self) { category in
+                        HStack {
+                            Text(category.symbol)
+                            Text(category.displayName)
+                        }
+                        .tag(category)
+                    }
+                }
+                .pickerStyle(MenuPickerStyle())
+                .frame(width: 140)
+            }
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 24)
     }
     
     private func previousDay() {
@@ -182,27 +125,146 @@ struct AnalyseView: View {
     private func nextDay() {
         selectedDate = Calendar.current.date(byAdding: .day, value: 1, to: selectedDate) ?? selectedDate
     }
+}
+
+// MARK: - Enable Tracking Card
+
+private struct EnableTrackingCard: View {
+    @ObservedObject var timeModel: TimeModel
     
-    private func formatSelectedDate() -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        return formatter.string(from: selectedDate)
-    }
-    
-    private func formatDuration(_ seconds: Int) -> String {
-        let hours = seconds / 3600
-        let minutes = (seconds % 3600) / 60
-        
-        if hours > 0 {
-            return String(format: "%dh %02dm", hours, minutes)
-        } else {
-            return String(format: "%dm", minutes)
+    var body: some View {
+        ModernCard {
+            VStack(spacing: 16) {
+                Image(systemName: "apps.iphone.badge.plus")
+                    .font(.system(size: 48))
+                    .foregroundStyle(.secondary)
+                
+                Text("App-Tracking aktivieren")
+                    .font(.headline)
+                
+                Text("Aktiviere das App-Tracking, um zu sehen, welche Apps du während deiner Arbeitszeit verwendest.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                
+                Button("App-Tracking aktivieren") {
+                    timeModel.isAppTrackingEnabled = true
+                }
+                .buttonStyle(EnableTrackingButtonStyle())
+            }
+            .padding(.vertical, 20)
         }
     }
 }
 
-// Interactive Donut Chart mit Dark/Light Mode Support
-struct InteractiveDonutChartView: View {
+// MARK: - Empty Analysis Card
+
+private struct EmptyAnalysisCard: View {
+    let category: TimerCategory
+    let isToday: Bool
+    
+    var body: some View {
+        ModernCard {
+            VStack(spacing: 16) {
+                Image(systemName: "chart.pie")
+                    .font(.system(size: 48))
+                    .foregroundStyle(.secondary)
+                
+                Text("Keine App-Daten verfügbar")
+                    .font(.headline)
+                
+                Text(isToday ?
+                     "Starte einen \(category.displayName)-Timer, um App-Daten zu sammeln." :
+                     "An diesem Tag wurden keine Apps für \(category.displayName) getrackt.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(.vertical, 40)
+        }
+    }
+}
+
+// MARK: - Analysis Content View
+
+private struct AnalysisContentView: View {
+    let appUsages: [AppUsage]
+    let totalDuration: Int
+    
+    var body: some View {
+        VStack(spacing: 32) {
+            // Interactive Donut Chart
+            ChartSectionView(appUsages: appUsages, totalDuration: totalDuration)
+            
+            // App-Liste
+            AppListSectionView(appUsages: appUsages, totalDuration: totalDuration)
+        }
+    }
+}
+
+// MARK: - Chart Section View
+
+private struct ChartSectionView: View {
+    let appUsages: [AppUsage]
+    let totalDuration: Int
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            Text("App-Verteilung")
+                .font(.headline)
+            
+            InteractiveDonutChartView(appUsages: appUsages, totalDuration: totalDuration)
+                .frame(width: 350, height: 350)
+            
+            VStack(spacing: 4) {
+                Text("Gesamtzeit")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+                    .tracking(0.5)
+                
+                Text(totalDuration.formatAsTime())
+                    .font(.system(.title2, design: .monospaced))
+                    .fontWeight(.semibold)
+            }
+        }
+    }
+}
+
+// MARK: - App List Section View
+
+private struct AppListSectionView: View {
+    let appUsages: [AppUsage]
+    let totalDuration: Int
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Detailansicht")
+                .font(.headline)
+            
+            ModernCard {
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(appUsages.prefix(10).enumerated()), id: \.element.id) { index, usage in
+                        AppUsageRowWithIconView(
+                            usage: usage,
+                            totalDuration: totalDuration,
+                            rank: index + 1
+                        )
+                        
+                        if index < min(appUsages.count - 1, 9) {
+                            Divider()
+                                .padding(.horizontal, 16)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Interactive Donut Chart
+
+private struct InteractiveDonutChartView: View {
     let appUsages: [AppUsage]
     let totalDuration: Int
     @State private var hoveredIndex: Int? = nil
@@ -322,7 +384,7 @@ struct InteractiveDonutChartView: View {
                             .multilineTextAlignment(.center)
                             .lineLimit(2)
                         
-                        Text(formatDuration(hoveredData.3))
+                        Text(hoveredData.3.formatAsTime())
                             .font(.system(size: 12, design: .monospaced))
                             .foregroundStyle(.secondary)
                         
@@ -384,21 +446,11 @@ struct InteractiveDonutChartView: View {
             }
         }
     }
-    
-    private func formatDuration(_ seconds: Int) -> String {
-        let hours = seconds / 3600
-        let minutes = (seconds % 3600) / 60
-        
-        if hours > 0 {
-            return String(format: "%dh %02dm", hours, minutes)
-        } else {
-            return String(format: "%dm", minutes)
-        }
-    }
 }
 
-// AppUsageRowView mit App-Icon und Dark/Light Mode
-struct AppUsageRowWithIconView: View {
+// MARK: - App Usage Row With Icon
+
+private struct AppUsageRowWithIconView: View {
     let usage: AppUsage
     let totalDuration: Int
     let rank: Int
@@ -451,7 +503,7 @@ struct AppUsageRowWithIconView: View {
                     .fontWeight(.medium)
                     .lineLimit(1)
                 
-                Text(formatDuration(usage.duration))
+                Text(usage.duration.formatAsTime())
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(.secondary)
             }
@@ -483,6 +535,7 @@ struct AppUsageRowWithIconView: View {
                     }
                 }
                 .frame(width: 60, height: 4)
+                .clipShape(Capsule())
             }
         }
         .padding(.horizontal, 16)
@@ -505,86 +558,11 @@ struct AppUsageRowWithIconView: View {
             }
         }
     }
-    
-    private func formatDuration(_ seconds: Int) -> String {
-        let hours = seconds / 3600
-        let minutes = (seconds % 3600) / 60
-        
-        if hours > 0 {
-            return String(format: "%dh %02dm", hours, minutes)
-        } else {
-            return String(format: "%dm", minutes)
-        }
-    }
 }
 
-// Empty State View mit Dark/Light Mode
-struct EmptyAnalysisView: View {
-    let category: TimerCategory
-    let isToday: Bool
-    @Environment(\.colorScheme) var colorScheme
-    
-    var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "chart.pie")
-                .font(.system(size: 48))
-                .foregroundStyle(.secondary)
-            
-            Text("Keine App-Daten verfügbar")
-                .font(.headline)
-            
-            Text(isToday ?
-                 "Starte einen \(category.displayName)-Timer, um App-Daten zu sammeln." :
-                 "An diesem Tag wurden keine Apps für \(category.displayName) getrackt.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .padding(.vertical, 40)
-    }
-}
+// MARK: - Preview
 
-// MARK: - Button Styles mit Dark/Light Mode
-
-struct EnableTrackingButtonStyle: ButtonStyle {
-    @Environment(\.colorScheme) var colorScheme
-    
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 14, weight: .medium))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 20)
-            .padding(.vertical, 10)
-            .background(.blue, in: RoundedRectangle(cornerRadius: 8))
-            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
-            .shadow(
-                color: .blue.opacity(colorScheme == .dark ? 0.6 : 0.3),
-                radius: colorScheme == .dark ? 4 : 2,
-                x: 0,
-                y: 1
-            )
-            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
-    }
-}
-
-struct AnalyseDateNavigationButtonStyle: ButtonStyle {
-    @Environment(\.colorScheme) var colorScheme
-    
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .foregroundStyle(configuration.isPressed ? .blue : .primary)
-            .frame(width: 28, height: 28)
-            .background(
-                Circle()
-                    .fill(configuration.isPressed ? Color.blue.opacity(0.1) : Color.primary.opacity(colorScheme == .dark ? 0.08 : 0.05))
-            )
-            .scaleEffect(configuration.isPressed ? 0.9 : 1.0)
-            .shadow(
-                color: .black.opacity(colorScheme == .dark ? 0.2 : 0.05),
-                radius: colorScheme == .dark ? 2 : 1,
-                x: 0,
-                y: 1
-            )
-            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
-    }
+#Preview {
+    AnalyseView(timeModel: TimeModel())
+        .frame(width: 800, height: 600)
 }
