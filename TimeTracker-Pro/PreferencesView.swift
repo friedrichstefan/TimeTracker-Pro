@@ -113,7 +113,7 @@ private struct LargeClockPane: View {
         }
         .padding()
     }
-
+// test ob das geht
     private func closeWindow() {
         NSApp.keyWindow?.performClose(nil)
     }
