@@ -30,6 +30,24 @@ final class StatusBarController {
             }
         }
         .store(in: &cancellables)
+        
+        // Subscribe zu System State Changes
+        timeModel.systemStateMonitor.$isLocked
+            .sink { [weak self] _ in
+                DispatchQueue.main.async {
+                    self?.updateStatusBarTitle()
+                }
+            }
+            .store(in: &cancellables)
+        
+        // Subscribe zu Work Progress Setting Changes
+        timeModel.$showWorkProgressInStatusBar
+            .sink { [weak self] _ in
+                DispatchQueue.main.async {
+                    self?.updateStatusBarTitle()
+                }
+            }
+            .store(in: &cancellables)
     }
     
     private func setupStatusItem() {
@@ -50,7 +68,13 @@ final class StatusBarController {
             let seconds = timeModel.getCurrentTimerSeconds()
             let timerText = formatTimerString(seconds)
             
-            // Nur Fortschritt anzeigen wenn aktiviert
+            // System-Status-Indikator
+            var statusIndicator = ""
+            if timeModel.systemStateMonitor.isLocked && timeModel.enableAutoPause {
+                statusIndicator = " 🔒"
+            }
+            
+            // Fortschritt nur anzeigen wenn aktiviert
             var progressText = ""
             if timeModel.showWorkProgressInStatusBar {
                 let todayWorkSeconds = timeModel.getWorkTimeForDate(Date())
@@ -60,12 +84,12 @@ final class StatusBarController {
             }
             
             if let activeCategory = timeModel.activeCategory, timeModel.isTimerRunning {
-                button.title = "\(activeCategory.symbol) \(timerText)\(progressText)"
+                button.title = "\(activeCategory.symbol) \(timerText)\(progressText)\(statusIndicator)"
             } else if seconds > 0 {
                 let maxCategory = getMaxCategory()
-                button.title = "\(maxCategory.symbol) \(timerText)\(progressText)"
+                button.title = "\(maxCategory.symbol) \(timerText)\(progressText)\(statusIndicator)"
             } else {
-                button.title = "00:00\(progressText)"
+                button.title = "00:00\(progressText)\(statusIndicator)"
             }
             
             button.font = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .regular)
@@ -104,7 +128,7 @@ final class StatusBarController {
         let timerHostingController = NSHostingController(rootView: timerView)
         let timerHostingView = timerHostingController.view
         
-        timerHostingView.frame = NSRect(x: 0, y: 0, width: 380, height: 280)
+        timerHostingView.frame = NSRect(x: 0, y: 0, width: 380, height: timeModel.workTimeMonitoringEnabled ? 280 : 210)
         timerHostingView.translatesAutoresizingMaskIntoConstraints = true
 
         let timerMenuItem = NSMenuItem()

@@ -77,7 +77,7 @@ struct PreferencesView: View {
     }
 }
 
-// MARK: - Sidebar Content (angepasst für NavigationSplitView)
+// MARK: - Sidebar Content
 
 struct XcodeSidebarContent: View {
     @Binding var selectedTab: PrefsTab
@@ -89,7 +89,7 @@ struct XcodeSidebarContent: View {
                 XcodeSidebarLabel(tab: tab)
                     .tag(tab)
                 
-                // Trennstrich nach App-Analyse - außerhalb der Selection
+                // Trennstrich nach App-Analyse
                 if tab.needsDividerAfter {
                     VStack {
                         Divider()
@@ -138,6 +138,22 @@ struct DetailContentView: View {
             insertion: .move(edge: .trailing).combined(with: .opacity),
             removal: .move(edge: .leading).combined(with: .opacity)
         ))
+    }
+}
+
+// MARK: - Hilfsfunktionen
+
+private func formatDuration(_ seconds: Int) -> String {
+    let hours = seconds / 3600
+    let minutes = (seconds % 3600) / 60
+    let secs = seconds % 60
+    
+    if hours > 0 {
+        return String(format: "%dh %02dm %02ds", hours, minutes, secs)
+    } else if minutes > 0 {
+        return String(format: "%02dm %02ds", minutes, secs)
+    } else {
+        return String(format: "%02ds", secs)
     }
 }
 
@@ -241,7 +257,7 @@ struct SettingsPane: View {
                     }
                 }
                 
-                // NEUE Arbeitszeit-Monitoring Karte
+                // Arbeitszeit-Monitoring
                 ModernCard {
                     VStack(alignment: .leading, spacing: 20) {
                         HStack {
@@ -376,6 +392,209 @@ struct SettingsPane: View {
                                 }
                                 .padding(.leading, 16)
                             }
+                        }
+                    }
+                }
+                
+                // Intelligentes Pausieren
+                ModernCard {
+                    VStack(alignment: .leading, spacing: 20) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Intelligentes Pausieren")
+                                    .font(.headline)
+                                    .foregroundStyle(.primary)
+                                
+                                Text("Automatische Timer-Steuerung basierend auf Rechner-Status und Arbeitszeiten")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            
+                            Spacer()
+                            
+                            Image(systemName: "brain.head.profile")
+                                .font(.system(size: 24))
+                                .foregroundStyle((timeModel.enableAutoPause || timeModel.pauseOutsideWorkHours) ? .blue : .secondary)
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 16) {
+                            ModernToggle(
+                                title: "Intelligentes Pausieren aktivieren",
+                                subtitle: "Automatische Timer-Steuerung während Arbeitszeiten wenn Rechner gesperrt wird",
+                                isOn: $timeModel.enableAutoPause
+                            )
+                            
+                            ModernToggle(
+                                title: "Work-Timer außerhalb Arbeitszeit pausieren",
+                                subtitle: "Arbeits-Timer pausieren wenn außerhalb der Kernarbeitszeit gesperrt (>10s)",
+                                isOn: $timeModel.pauseOutsideWorkHours
+                            )
+                            
+                            if timeModel.enableAutoPause || timeModel.pauseOutsideWorkHours {
+                                VStack(spacing: 16) {
+                                    if timeModel.enableAutoPause {
+                                        ModernToggle(
+                                            title: "Nur während Arbeitszeiten (Auto-Pause)",
+                                            subtitle: "Automatik nur während der definierten Kern-Arbeitszeit",
+                                            isOn: $timeModel.onlyDuringWorkHours
+                                        )
+                                    }
+                                    
+                                    ModernToggle(
+                                        title: "Vor Fortsetzung fragen (während Arbeitszeit)",
+                                        subtitle: "Nach Entsperren während Arbeitszeit nachfragen ob Timer fortgesetzt werden soll",
+                                        isOn: $timeModel.askBeforeResuming
+                                    )
+                                    
+                                    ModernToggle(
+                                        title: "Nach Pausierung fragen (außerhalb Arbeitszeit)",
+                                        subtitle: "Fragen ob Timer nach automatischer Pausierung außerhalb Arbeitszeit fortgesetzt werden soll",
+                                        isOn: $timeModel.askToResumeAfterPause
+                                    )
+                                    
+                                    if timeModel.enableAutoPause {
+                                        // Schwellwerte für Auto-Pause
+                                        VStack(spacing: 12) {
+                                            Text("Schwellwerte")
+                                                .font(.subheadline)
+                                                .fontWeight(.medium)
+                                                .frame(maxWidth: .infinity, alignment: .leading)
+                                            
+                                            HStack {
+                                                VStack(alignment: .leading, spacing: 4) {
+                                                    Text("Ignorier-Schwelle")
+                                                        .font(.caption)
+                                                        .fontWeight(.medium)
+                                                    
+                                                    Text("Sperrungen unter dieser Zeit zählen zur Arbeitszeit")
+                                                        .font(.caption2)
+                                                        .foregroundStyle(.secondary)
+                                                }
+                                                
+                                                Spacer()
+                                                
+                                                HStack(spacing: 8) {
+                                                    TextField("Sek", value: $timeModel.minimumPauseDurationSeconds, formatter: NumberFormatter())
+                                                        .textFieldStyle(.roundedBorder)
+                                                        .frame(width: 60)
+                                                    
+                                                    Text("Sekunden")
+                                                        .font(.caption)
+                                                        .foregroundStyle(.secondary)
+                                                }
+                                            }
+                                            
+                                            HStack {
+                                                VStack(alignment: .leading, spacing: 4) {
+                                                    Text("Mittagessen-Schwelle")
+                                                        .font(.caption)
+                                                        .fontWeight(.medium)
+                                                    
+                                                    Text("Ab dieser Zeit wird Mittagessen statt Kaffeepause gezählt")
+                                                        .font(.caption2)
+                                                        .foregroundStyle(.secondary)
+                                                }
+                                                
+                                                Spacer()
+                                                
+                                                HStack(spacing: 8) {
+                                                    TextField("Min", value: $timeModel.lunchThresholdMinutes, formatter: NumberFormatter())
+                                                        .textFieldStyle(.roundedBorder)
+                                                        .frame(width: 60)
+                                                    
+                                                    Text("Minuten")
+                                                        .font(.caption)
+                                                        .foregroundStyle(.secondary)
+                                                }
+                                            }
+                                        }
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 12)
+                                        .background(.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+                                    }
+                                }
+                            }
+                            
+                            // System-Status
+                            HStack {
+                                Text("Status:")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                
+                                Spacer()
+                                
+                                HStack(spacing: 8) {
+                                    Circle()
+                                        .fill(timeModel.systemStateMonitor.isLocked ? .red : .green)
+                                        .frame(width: 8, height: 8)
+                                    
+                                    Text(timeModel.systemStateMonitor.isLocked ? "Gesperrt" : "Aktiv")
+                                        .font(.caption)
+                                        .fontWeight(.medium)
+                                    
+                                    if timeModel.systemStateMonitor.isLocked,
+                                       let duration = timeModel.systemStateMonitor.currentLockDuration {
+                                        Text("(\(formatDuration(Int(duration))))")
+                                            .font(.system(.caption, design: .monospaced))
+                                            .foregroundStyle(.orange)
+                                    }
+                                }
+                            }
+                        }
+                        
+                        if timeModel.enableAutoPause || timeModel.pauseOutsideWorkHours {
+                            // Info-Box mit Regeln
+                            HStack {
+                                Image(systemName: "info.circle")
+                                    .foregroundStyle(.blue)
+                                    .font(.system(size: 14))
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Automatik-Regeln:")
+                                        .font(.caption)
+                                        .fontWeight(.medium)
+                                    
+                                    if timeModel.enableAutoPause {
+                                        Text("Während Arbeitszeit:")
+                                            .font(.caption2)
+                                            .fontWeight(.medium)
+                                            .foregroundStyle(.blue)
+                                        
+                                        Text("• < \(timeModel.minimumPauseDurationSeconds)s: Zur Arbeitszeit addiert")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        
+                                        Text("• \(timeModel.minimumPauseDurationSeconds)s - \(timeModel.lunchThresholdMinutes)min: Kaffeepause")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        
+                                        Text("• > \(timeModel.lunchThresholdMinutes)min: Mittagessen")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    
+                                    if timeModel.pauseOutsideWorkHours {
+                                        Text("Außerhalb Arbeitszeit:")
+                                            .font(.caption2)
+                                            .fontWeight(.medium)
+                                            .foregroundStyle(.orange)
+                                            .padding(.top, 4)
+                                        
+                                        Text("• Work-Timer wird bei Sperrung >10s pausiert")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        
+                                        Text("• Push-Benachrichtigung zum Fortsetzen")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                
+                                Spacer()
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 12)
+                            .background(.blue.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
                         }
                     }
                 }

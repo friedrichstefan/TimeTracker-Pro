@@ -1,3 +1,10 @@
+//
+//  TimeModel.swift
+//  TimeTracker-Pro
+//
+//  Created by Friedrich, Stefan on 13.12.25.
+//
+
 import Foundation
 import Combine
 import AppKit
@@ -143,21 +150,49 @@ final class TimeModel: ObservableObject {
         didSet { UserDefaults.standard.set(dataRetentionDays, forKey: Keys.dataRetentionDays) }
     }
     
+    // Arbeitszeit-Monitoring
     @Published var workTimeMonitoringEnabled: Bool {
         didSet {
             UserDefaults.standard.set(workTimeMonitoringEnabled, forKey: Keys.workTimeMonitoringEnabled)
             if !workTimeMonitoringEnabled {
-                // Timer stoppen wenn deaktiviert
                 workTimeCheckTimer?.invalidate()
                 workTimeCheckTimer = nil
             } else {
-                // Timer starten wenn aktiviert
                 startWorkTimeMonitoring()
             }
         }
     }
     @Published var showWorkProgressInStatusBar: Bool {
         didSet { UserDefaults.standard.set(showWorkProgressInStatusBar, forKey: Keys.showWorkProgressInStatusBar) }
+    }
+    
+    // Automatisches Pausieren
+    @Published var systemStateMonitor = SystemStateMonitor()
+    @Published var enableAutoPause: Bool {
+        didSet {
+            UserDefaults.standard.set(enableAutoPause, forKey: Keys.enableAutoPause)
+            updateSystemMonitoringCallbacks()
+        }
+    }
+    @Published var onlyDuringWorkHours: Bool {
+        didSet { UserDefaults.standard.set(onlyDuringWorkHours, forKey: Keys.onlyDuringWorkHours) }
+    }
+    @Published var minimumPauseDurationSeconds: Int {
+        didSet { UserDefaults.standard.set(minimumPauseDurationSeconds, forKey: Keys.minimumPauseDurationSeconds) }
+    }
+    @Published var lunchThresholdMinutes: Int {
+        didSet { UserDefaults.standard.set(lunchThresholdMinutes, forKey: Keys.lunchThresholdMinutes) }
+    }
+    @Published var askBeforeResuming: Bool {
+        didSet { UserDefaults.standard.set(askBeforeResuming, forKey: Keys.askBeforeResuming) }
+    }
+    
+    // Erweiterte Auto-Pause Logic (NEUE PROPERTIES)
+    @Published var pauseOutsideWorkHours: Bool {
+        didSet { UserDefaults.standard.set(pauseOutsideWorkHours, forKey: Keys.pauseOutsideWorkHours) }
+    }
+    @Published var askToResumeAfterPause: Bool {
+        didSet { UserDefaults.standard.set(askToResumeAfterPause, forKey: Keys.askToResumeAfterPause) }
     }
     
     private var appTrackingTimer: Timer?
@@ -167,6 +202,15 @@ final class TimeModel: ObservableObject {
     // Arbeitszeit-Monitoring
     private var workTimeCheckTimer: Timer?
     private var lastWorkTimeNotification: Date?
+    
+    // Tracking für automatische Aktionen
+    private var wasWorkingBeforeLock = false
+    private var lockStartSeconds: [TimerCategory: Int] = [:]
+    private var isAutomaticAction = false
+    
+    // Tracking für erweiterte Funktionen
+    private var wasWorkTimerStoppedByLock = false
+    private var pausedOutsideWorkHours = false
 
     private var clockTimer: Timer?
     private var countdownTimer: Timer?
@@ -183,7 +227,7 @@ final class TimeModel: ObservableObject {
         static let timerSessions = "TimeTracker_TimerSessions"
         static let isAppTrackingEnabled = "TimeTracker_IsAppTrackingEnabled"
         
-        // Neue Keys
+        // Arbeitszeit-Einstellungen
         static let targetWorkHours = "TimeTracker_TargetWorkHours"
         static let workStartTime = "TimeTracker_WorkStartTime"
         static let workEndTime = "TimeTracker_WorkEndTime"
@@ -195,8 +239,20 @@ final class TimeModel: ObservableObject {
         static let warnUnproductiveApps = "TimeTracker_WarnUnproductiveApps"
         static let dataRetentionDays = "TimeTracker_DataRetentionDays"
         
+        // Arbeitszeit-Monitoring
         static let workTimeMonitoringEnabled = "TimeTracker_WorkTimeMonitoringEnabled"
         static let showWorkProgressInStatusBar = "TimeTracker_ShowWorkProgressInStatusBar"
+        
+        // Automatisches Pausieren
+        static let enableAutoPause = "TimeTracker_EnableAutoPause"
+        static let onlyDuringWorkHours = "TimeTracker_OnlyDuringWorkHours"
+        static let minimumPauseDurationSeconds = "TimeTracker_MinimumPauseDurationSeconds"
+        static let lunchThresholdMinutes = "TimeTracker_LunchThresholdMinutes"
+        static let askBeforeResuming = "TimeTracker_AskBeforeResuming"
+        
+        // Erweiterte Auto-Pause
+        static let pauseOutsideWorkHours = "TimeTracker_PauseOutsideWorkHours"
+        static let askToResumeAfterPause = "TimeTracker_AskToResumeAfterPause"
     }
 
     init() {
@@ -209,7 +265,7 @@ final class TimeModel: ObservableObject {
         if defaults.object(forKey: Keys.largeClockFontSize) == nil { defaults.set(36.0, forKey: Keys.largeClockFontSize) }
         if defaults.object(forKey: Keys.isAppTrackingEnabled) == nil { defaults.set(false, forKey: Keys.isAppTrackingEnabled) }
         
-        // Neue Standard-Werte
+        // Arbeitszeit-Einstellungen Standard-Werte
         if defaults.object(forKey: Keys.targetWorkHours) == nil { defaults.set(8, forKey: Keys.targetWorkHours) }
         if defaults.object(forKey: Keys.workStartTime) == nil {
             let startTime = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date()
@@ -227,8 +283,20 @@ final class TimeModel: ObservableObject {
         if defaults.object(forKey: Keys.warnUnproductiveApps) == nil { defaults.set(false, forKey: Keys.warnUnproductiveApps) }
         if defaults.object(forKey: Keys.dataRetentionDays) == nil { defaults.set(0, forKey: Keys.dataRetentionDays) }
         
+        // Arbeitszeit-Monitoring Standard-Werte
         if defaults.object(forKey: Keys.workTimeMonitoringEnabled) == nil { defaults.set(true, forKey: Keys.workTimeMonitoringEnabled) }
         if defaults.object(forKey: Keys.showWorkProgressInStatusBar) == nil { defaults.set(true, forKey: Keys.showWorkProgressInStatusBar) }
+        
+        // Automatisches Pausieren Standard-Werte
+        if defaults.object(forKey: Keys.enableAutoPause) == nil { defaults.set(false, forKey: Keys.enableAutoPause) }
+        if defaults.object(forKey: Keys.onlyDuringWorkHours) == nil { defaults.set(true, forKey: Keys.onlyDuringWorkHours) }
+        if defaults.object(forKey: Keys.minimumPauseDurationSeconds) == nil { defaults.set(10, forKey: Keys.minimumPauseDurationSeconds) }
+        if defaults.object(forKey: Keys.lunchThresholdMinutes) == nil { defaults.set(10, forKey: Keys.lunchThresholdMinutes) }
+        if defaults.object(forKey: Keys.askBeforeResuming) == nil { defaults.set(true, forKey: Keys.askBeforeResuming) }
+        
+        // Erweiterte Auto-Pause Standard-Werte
+        if defaults.object(forKey: Keys.pauseOutsideWorkHours) == nil { defaults.set(true, forKey: Keys.pauseOutsideWorkHours) }
+        if defaults.object(forKey: Keys.askToResumeAfterPause) == nil { defaults.set(true, forKey: Keys.askToResumeAfterPause) }
 
         // Werte laden
         showSeconds = defaults.bool(forKey: Keys.showSeconds)
@@ -239,7 +307,7 @@ final class TimeModel: ObservableObject {
         let savedSize = defaults.double(forKey: Keys.largeClockFontSize)
         largeClockFontSize = savedSize > 0 ? savedSize : 36.0
 
-        // Neue Properties laden
+        // Arbeitszeit-Einstellungen laden
         targetWorkHours = defaults.integer(forKey: Keys.targetWorkHours)
         workStartTime = defaults.object(forKey: Keys.workStartTime) as? Date ?? Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date()
         workEndTime = defaults.object(forKey: Keys.workEndTime) as? Date ?? Calendar.current.date(bySettingHour: 17, minute: 0, second: 0, of: Date()) ?? Date()
@@ -250,14 +318,26 @@ final class TimeModel: ObservableObject {
         trackOnlyProductiveApps = defaults.bool(forKey: Keys.trackOnlyProductiveApps)
         warnUnproductiveApps = defaults.bool(forKey: Keys.warnUnproductiveApps)
         dataRetentionDays = defaults.integer(forKey: Keys.dataRetentionDays)
+        
+        // Arbeitszeit-Monitoring laden
+        workTimeMonitoringEnabled = defaults.bool(forKey: Keys.workTimeMonitoringEnabled)
+        showWorkProgressInStatusBar = defaults.bool(forKey: Keys.showWorkProgressInStatusBar)
+        
+        // Automatisches Pausieren laden
+        enableAutoPause = defaults.bool(forKey: Keys.enableAutoPause)
+        onlyDuringWorkHours = defaults.bool(forKey: Keys.onlyDuringWorkHours)
+        minimumPauseDurationSeconds = defaults.integer(forKey: Keys.minimumPauseDurationSeconds)
+        lunchThresholdMinutes = defaults.integer(forKey: Keys.lunchThresholdMinutes)
+        askBeforeResuming = defaults.bool(forKey: Keys.askBeforeResuming)
+        
+        // Erweiterte Auto-Pause laden
+        pauseOutsideWorkHours = defaults.bool(forKey: Keys.pauseOutsideWorkHours)
+        askToResumeAfterPause = defaults.bool(forKey: Keys.askToResumeAfterPause)
 
         // Timer-Zeiten laden
         workSeconds = defaults.integer(forKey: Keys.workSeconds)
         coffeeSeconds = defaults.integer(forKey: Keys.coffeeSeconds)
         lunchSeconds = defaults.integer(forKey: Keys.lunchSeconds)
-        
-        workTimeMonitoringEnabled = defaults.bool(forKey: Keys.workTimeMonitoringEnabled)
-        showWorkProgressInStatusBar = defaults.bool(forKey: Keys.showWorkProgressInStatusBar)
         
         // Timer-Sessions laden
         loadTimerSessions()
@@ -268,12 +348,13 @@ final class TimeModel: ObservableObject {
         // Berechtigung für Benachrichtigungen anfragen
         requestNotificationPermission()
         
-        // Arbeitszeit-Check Timer starten
-        startWorkTimeMonitoring()
-        
+        // Arbeitszeit-Check Timer starten wenn aktiviert
         if workTimeMonitoringEnabled {
-                startWorkTimeMonitoring()
-            }
+            startWorkTimeMonitoring()
+        }
+        
+        // System Monitoring Callbacks setup
+        updateSystemMonitoringCallbacks()
     }
 
     deinit {
@@ -281,6 +362,274 @@ final class TimeModel: ObservableObject {
         countdownTimer?.invalidate()
         appTrackingTimer?.invalidate()
         workTimeCheckTimer?.invalidate()
+    }
+    
+    // MARK: - Erweiterte System Monitoring Integration
+    
+    private func updateSystemMonitoringCallbacks() {
+        systemStateMonitor.onSystemLocked = { [weak self] in
+            DispatchQueue.main.async {
+                self?.handleSystemLocked()
+            }
+        }
+        
+        systemStateMonitor.onSystemUnlocked = { [weak self] duration, reason in
+            DispatchQueue.main.async {
+                self?.handleSystemUnlocked(duration: duration, reason: reason)
+            }
+        }
+    }
+    
+    private func isCurrentlyInWorkHours() -> Bool {
+        guard onlyDuringWorkHours else {
+            print("Work hours restriction disabled - allowing automatic actions")
+            return true
+        }
+        
+        let now = Date()
+        let calendar = Calendar.current
+        
+        // Wochentag prüfen (1 = Sonntag, 2 = Montag, ..., 7 = Samstag)
+        let weekday = calendar.component(.weekday, from: now)
+        let isWeekend = weekday == 1 || weekday == 7 // Sonntag oder Samstag
+        
+        let isWorkDay = includeWeekends ? true : !isWeekend
+        
+        if !isWorkDay {
+            print("Outside work days - no automatic actions (weekday: \(weekday))")
+            return false
+        }
+        
+        // Zeit prüfen
+        let currentHour = calendar.component(.hour, from: now)
+        let currentMinute = calendar.component(.minute, from: now)
+        let currentTimeInMinutes = currentHour * 60 + currentMinute
+        
+        let startHour = calendar.component(.hour, from: workStartTime)
+        let startMinute = calendar.component(.minute, from: workStartTime)
+        let startTimeInMinutes = startHour * 60 + startMinute
+        
+        let endHour = calendar.component(.hour, from: workEndTime)
+        let endMinute = calendar.component(.minute, from: workEndTime)
+        let endTimeInMinutes = endHour * 60 + endMinute
+        
+        let isInTimeRange = currentTimeInMinutes >= startTimeInMinutes && currentTimeInMinutes <= endTimeInMinutes
+        
+        print("Work hours check: current=\(currentHour):\(String(format: "%02d", currentMinute)), start=\(startHour):\(String(format: "%02d", startMinute)), end=\(endHour):\(String(format: "%02d", endMinute)), inRange=\(isInTimeRange)")
+        
+        return isInTimeRange
+    }
+    
+    private func handleSystemLocked() {
+        let inWorkHours = isCurrentlyInWorkHours()
+        let isWorkTimerRunning = (activeCategory == .work && isTimerRunning)
+        
+        print("System locked - in work hours: \(inWorkHours), work timer running: \(isWorkTimerRunning)")
+        
+        if inWorkHours && enableAutoPause {
+            // INNERHALB der Arbeitszeit - normale Auto-Pause-Logik
+            print("Processing auto-pause during work hours")
+            
+            wasWorkTimerStoppedByLock = isWorkTimerRunning
+            wasWorkingBeforeLock = isWorkTimerRunning
+            
+            lockStartSeconds = [
+                .work: workSeconds,
+                .coffee: coffeeSeconds,
+                .lunch: lunchSeconds
+            ]
+            
+            if isTimerRunning {
+                stopTimer()
+                print("Timer stopped due to system lock during work hours")
+            }
+            
+        } else if !inWorkHours && pauseOutsideWorkHours && isWorkTimerRunning {
+            // AUßERHALB der Arbeitszeit - Work-Timer pausieren wenn > 10s
+            print("Work timer running outside work hours - will pause if lock > 10s")
+            pausedOutsideWorkHours = true
+            
+        } else {
+            print("No automatic actions - enableAutoPause: \(enableAutoPause), pauseOutsideWorkHours: \(pauseOutsideWorkHours)")
+        }
+    }
+    
+    private func handleSystemUnlocked(duration: TimeInterval, reason: AutoPauseReason) {
+        let inWorkHours = isCurrentlyInWorkHours()
+        
+        print("System unlocked - duration: \(duration)s, in work hours: \(inWorkHours), reason: \(reason)")
+        
+        if inWorkHours && enableAutoPause {
+            // INNERHALB der Arbeitszeit - normale Auto-Pause-Verarbeitung
+            handleWorkHoursUnlock(duration: duration, reason: reason)
+            
+        } else if !inWorkHours && pausedOutsideWorkHours {
+            // AUßERHALB der Arbeitszeit - Work-Timer pausieren
+            handleOutsideWorkHoursUnlock(duration: duration)
+            
+        } else {
+            print("No unlock processing needed")
+        }
+        
+        // Reset tracking variables
+        wasWorkingBeforeLock = false
+        wasWorkTimerStoppedByLock = false
+        pausedOutsideWorkHours = false
+        lockStartSeconds.removeAll()
+    }
+    
+    private func handleWorkHoursUnlock(duration: TimeInterval, reason: AutoPauseReason) {
+        print("Processing unlock during work hours - reason: \(reason)")
+        
+        switch reason {
+        case .ignored:
+            // Zu kurze Pause - zur Arbeitszeit hinzufügen
+            if wasWorkingBeforeLock {
+                addTimeToCategory(.work, seconds: Int(duration))
+                print("Short pause ignored - added \(duration)s to work time")
+                
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.isAutomaticAction = true
+                    self.startTimer(for: .work)
+                    self.isAutomaticAction = false
+                }
+            }
+            
+        case .coffee:
+            // Kaffeepause
+            addTimeToCategory(.coffee, seconds: Int(duration))
+            print("Coffee break - added \(duration)s to coffee time")
+            
+            if wasWorkTimerStoppedByLock && askBeforeResuming {
+                askToResumeWork()
+            }
+            
+        case .lunch:
+            // Mittagspause
+            addTimeToCategory(.lunch, seconds: Int(duration))
+            print("Lunch break - added \(duration)s to lunch time")
+            
+            if wasWorkTimerStoppedByLock && askBeforeResuming {
+                askToResumeWork()
+            }
+        }
+    }
+    
+    private func handleOutsideWorkHoursUnlock(duration: TimeInterval) {
+        print("Processing unlock outside work hours - duration: \(duration)s")
+        
+        if duration > 10 { // Mehr als 10 Sekunden
+            // Work-Timer pausieren
+            if activeCategory == .work && isTimerRunning {
+                stopTimer()
+                print("Work timer paused - outside work hours, lock duration > 10s")
+                
+                // Frage ob Timer fortgesetzt werden soll
+                if askToResumeAfterPause {
+                    askToResumeWorkOutsideHours()
+                }
+            }
+        } else {
+            print("Lock duration too short - no action needed")
+        }
+    }
+    
+    private func addTimeToCategory(_ category: TimerCategory, seconds: Int) {
+        switch category {
+        case .work:
+            workSeconds += seconds
+            UserDefaults.standard.set(workSeconds, forKey: Keys.workSeconds)
+        case .coffee:
+            coffeeSeconds += seconds
+            UserDefaults.standard.set(coffeeSeconds, forKey: Keys.coffeeSeconds)
+        case .lunch:
+            lunchSeconds += seconds
+            UserDefaults.standard.set(lunchSeconds, forKey: Keys.lunchSeconds)
+        }
+        
+        // Session für Tracking erstellen
+        let startTime = Date().addingTimeInterval(-TimeInterval(seconds))
+        let session = TimerSession(
+            category: category,
+            startTime: startTime,
+            endTime: Date(),
+            duration: seconds
+        )
+        
+        timerSessions.insert(session, at: 0)
+        saveTimerSessions()
+    }
+    
+    private func askToResumeWork() {
+        guard askBeforeResuming else {
+            // Automatisch fortsetzen ohne zu fragen
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self.isAutomaticAction = true
+                self.startTimer(for: .work)
+                self.isAutomaticAction = false
+            }
+            return
+        }
+        
+        sendResumeWorkNotification(
+            title: "Arbeitszeit fortsetzen?",
+            body: "Möchtest du die Arbeitszeit wieder starten?",
+            category: "RESUME_WORK_HOURS"
+        )
+    }
+    
+    private func askToResumeWorkOutsideHours() {
+        guard askToResumeAfterPause else { return }
+        
+        sendResumeWorkNotification(
+            title: "Arbeits-Timer fortsetzen?",
+            body: "Der Timer wurde außerhalb der Arbeitszeit pausiert. Fortsetzen?",
+            category: "RESUME_WORK_OUTSIDE"
+        )
+    }
+    
+    private func sendResumeWorkNotification(title: String, body: String, category: String) {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        content.categoryIdentifier = category
+        
+        // Aktions-Buttons
+        let resumeAction = UNNotificationAction(
+            identifier: "RESUME_ACTION",
+            title: "Ja, fortsetzen",
+            options: [.foreground]
+        )
+        
+        let dismissAction = UNNotificationAction(
+            identifier: "DISMISS_ACTION",
+            title: "Nein, danke",
+            options: []
+        )
+        
+        let notificationCategory = UNNotificationCategory(
+            identifier: category,
+            actions: [resumeAction, dismissAction],
+            intentIdentifiers: [],
+            options: []
+        )
+        
+        UNUserNotificationCenter.current().setNotificationCategories([notificationCategory])
+        
+        let request = UNNotificationRequest(
+            identifier: "resume_work_\(UUID().uuidString)",
+            content: content,
+            trigger: UNTimeIntervalNotificationTrigger(timeInterval: 2, repeats: false) // 2s Delay
+        )
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("Error scheduling resume notification: \(error)")
+            } else {
+                print("Resume work notification scheduled")
+            }
+        }
     }
     
     // MARK: - Benachrichtigungen
@@ -685,5 +1034,18 @@ final class TimeModel: ObservableObject {
         } else {
             return String(format: "%dm", minutes)
         }
+    }
+}
+
+// MARK: - Public Resume Methods
+extension TimeModel {
+    func resumeWorkFromNotification() {
+        print("Resuming work from notification")
+        startTimer(for: .work)
+    }
+    
+    func dismissResumeRequest() {
+        print("User dismissed resume request")
+        // Optional: Analytics oder weitere Aktionen
     }
 }
