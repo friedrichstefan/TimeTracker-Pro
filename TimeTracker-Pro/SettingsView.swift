@@ -11,26 +11,24 @@ struct SettingsView: View {
     @ObservedObject var timeModel: TimeModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Zeiteinstellungen")
-                .font(.headline)
-
-            Toggle("Sekunden anzeigen", isOn: $timeModel.showSeconds)
-            Toggle("24‑Stunden‑Format", isOn: $timeModel.use24Hour)
-            Toggle("Datum anzeigen", isOn: $timeModel.showDate)
-
-            Divider()
-
-            HStack {
-                Spacer()
-                Button("Schließen") {
-                    // Popover schließt automatisch bei transient; falls man explizit schließen will:
-                    if let window = NSApp.keyWindow {
-                        window.performClose(nil)
-                    }
+        VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Uhr-Einstellungen")
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    Toggle("Sekunden anzeigen", isOn: $timeModel.showSeconds)
+                    Toggle("24-Stunden-Format", isOn: $timeModel.use24Hour)
+                    Toggle("Datum anzeigen", isOn: $timeModel.showDate)
                 }
+                .toggleStyle(.switch)
             }
+            
+            Spacer()
         }
-        .padding()
+        .padding(20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(.regularMaterial)
     }
 }

@@ -32,3 +32,4 @@ class PreferencesWindowController: NSWindowController {
         fatalError("init(coder:) has not been implemented")
     }
 }
+
