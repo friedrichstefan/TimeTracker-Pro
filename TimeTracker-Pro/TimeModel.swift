@@ -1,14 +1,8 @@
-//
-//  TimeModel.swift
-//  TimeTracker-Pro
-//
-//  Created by Friedrich, Stefan on 13.12.25.
-//
-
 import Foundation
 import Combine
 import AppKit
 import UniformTypeIdentifiers
+import UserNotifications
 
 enum TimerCategory: String, CaseIterable, Codable {
     case work = "work"
@@ -149,9 +143,30 @@ final class TimeModel: ObservableObject {
         didSet { UserDefaults.standard.set(dataRetentionDays, forKey: Keys.dataRetentionDays) }
     }
     
+    @Published var workTimeMonitoringEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(workTimeMonitoringEnabled, forKey: Keys.workTimeMonitoringEnabled)
+            if !workTimeMonitoringEnabled {
+                // Timer stoppen wenn deaktiviert
+                workTimeCheckTimer?.invalidate()
+                workTimeCheckTimer = nil
+            } else {
+                // Timer starten wenn aktiviert
+                startWorkTimeMonitoring()
+            }
+        }
+    }
+    @Published var showWorkProgressInStatusBar: Bool {
+        didSet { UserDefaults.standard.set(showWorkProgressInStatusBar, forKey: Keys.showWorkProgressInStatusBar) }
+    }
+    
     private var appTrackingTimer: Timer?
     private var currentAppUsages: [String: (String, Int)] = [:] // bundleID: (appName, duration)
     private var lastActiveApp: String = ""
+    
+    // Arbeitszeit-Monitoring
+    private var workTimeCheckTimer: Timer?
+    private var lastWorkTimeNotification: Date?
 
     private var clockTimer: Timer?
     private var countdownTimer: Timer?
@@ -179,6 +194,9 @@ final class TimeModel: ObservableObject {
         static let trackOnlyProductiveApps = "TimeTracker_TrackOnlyProductiveApps"
         static let warnUnproductiveApps = "TimeTracker_WarnUnproductiveApps"
         static let dataRetentionDays = "TimeTracker_DataRetentionDays"
+        
+        static let workTimeMonitoringEnabled = "TimeTracker_WorkTimeMonitoringEnabled"
+        static let showWorkProgressInStatusBar = "TimeTracker_ShowWorkProgressInStatusBar"
     }
 
     init() {
@@ -208,6 +226,9 @@ final class TimeModel: ObservableObject {
         if defaults.object(forKey: Keys.trackOnlyProductiveApps) == nil { defaults.set(false, forKey: Keys.trackOnlyProductiveApps) }
         if defaults.object(forKey: Keys.warnUnproductiveApps) == nil { defaults.set(false, forKey: Keys.warnUnproductiveApps) }
         if defaults.object(forKey: Keys.dataRetentionDays) == nil { defaults.set(0, forKey: Keys.dataRetentionDays) }
+        
+        if defaults.object(forKey: Keys.workTimeMonitoringEnabled) == nil { defaults.set(true, forKey: Keys.workTimeMonitoringEnabled) }
+        if defaults.object(forKey: Keys.showWorkProgressInStatusBar) == nil { defaults.set(true, forKey: Keys.showWorkProgressInStatusBar) }
 
         // Werte laden
         showSeconds = defaults.bool(forKey: Keys.showSeconds)
@@ -235,17 +256,133 @@ final class TimeModel: ObservableObject {
         coffeeSeconds = defaults.integer(forKey: Keys.coffeeSeconds)
         lunchSeconds = defaults.integer(forKey: Keys.lunchSeconds)
         
+        workTimeMonitoringEnabled = defaults.bool(forKey: Keys.workTimeMonitoringEnabled)
+        showWorkProgressInStatusBar = defaults.bool(forKey: Keys.showWorkProgressInStatusBar)
+        
         // Timer-Sessions laden
         loadTimerSessions()
 
         setupFormatter()
         startClockTimer()
+        
+        // Berechtigung für Benachrichtigungen anfragen
+        requestNotificationPermission()
+        
+        // Arbeitszeit-Check Timer starten
+        startWorkTimeMonitoring()
+        
+        if workTimeMonitoringEnabled {
+                startWorkTimeMonitoring()
+            }
     }
 
     deinit {
         clockTimer?.invalidate()
         countdownTimer?.invalidate()
         appTrackingTimer?.invalidate()
+        workTimeCheckTimer?.invalidate()
+    }
+    
+    // MARK: - Benachrichtigungen
+    
+    private func requestNotificationPermission() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            if granted {
+                print("Benachrichtigungen erlaubt")
+            }
+        }
+    }
+    
+    private func startWorkTimeMonitoring() {
+        workTimeCheckTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
+            self?.checkWorkTimeProgress()
+        }
+        RunLoop.current.add(workTimeCheckTimer!, forMode: .common)
+    }
+    
+    private func checkWorkTimeProgress() {
+        guard notificationsEnabled && workTimeMonitoringEnabled else { return }
+        
+        let todayWorkTime = getWorkTimeForDate(Date())
+        let targetWorkTime = targetWorkHours * 3600
+        let progress = Double(todayWorkTime) / Double(targetWorkTime)
+        
+        let now = Date()
+        
+        // Ziel erreicht
+        if progress >= 1.0 && !hasNotificationBeenSentToday("goal_reached") {
+            sendNotification(
+                title: "Arbeitsziel erreicht!",
+                body: "Du hast heute bereits \(targetWorkHours) Stunden gearbeitet.",
+                identifier: "goal_reached",
+                icon: "checkmark.circle"
+            )
+        }
+        // 75% erreicht
+        else if progress >= 0.75 && !hasNotificationBeenSentToday("75_percent") {
+            let remaining = formatTime(targetWorkTime - todayWorkTime)
+            sendNotification(
+                title: "75% geschafft!",
+                body: "Noch \(remaining) bis zum Tagesziel.",
+                identifier: "75_percent",
+                icon: "chart.bar.fill"
+            )
+        }
+        // 50% erreicht
+        else if progress >= 0.5 && !hasNotificationBeenSentToday("50_percent") {
+            sendNotification(
+                title: "Hälfte geschafft!",
+                body: "Du bist auf einem guten Weg zum Tagesziel.",
+                identifier: "50_percent",
+                icon: "clock.badge.checkmark"
+            )
+        }
+        // Warnung bei wenig Arbeitszeit gegen Abend
+        else if isAfternoon() && progress < 0.3 && !hasNotificationBeenSentToday("afternoon_warning") {
+            sendNotification(
+                title: "Arbeitszeit-Erinnerung",
+                body: "Es wird später - vielleicht Zeit für mehr Produktivität?",
+                identifier: "afternoon_warning",
+                icon: "clock.badge.exclamationmark"
+            )
+        }
+    }
+    
+    private func sendNotification(title: String, body: String, identifier: String, icon: String) {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        
+        let request = UNNotificationRequest(
+            identifier: identifier,
+            content: content,
+            trigger: UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        )
+        
+        UNUserNotificationCenter.current().add(request)
+        markNotificationAsSentToday(identifier)
+    }
+    
+    private func hasNotificationBeenSentToday(_ identifier: String) -> Bool {
+        let key = "notification_\(identifier)_\(todayDateKey())"
+        return UserDefaults.standard.bool(forKey: key)
+    }
+    
+    private func markNotificationAsSentToday(_ identifier: String) {
+        let key = "notification_\(identifier)_\(todayDateKey())"
+        UserDefaults.standard.set(true, forKey: key)
+    }
+    
+    private func todayDateKey() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: Date())
+    }
+    
+    private func isAfternoon() -> Bool {
+        let hour = Calendar.current.component(.hour, from: Date())
+        return hour >= 15 // Nach 15:00 Uhr
     }
 
     // MARK: - Timer Functions
@@ -537,5 +674,16 @@ final class TimeModel: ObservableObject {
             }
         }
         RunLoop.current.add(clockTimer!, forMode: .common)
+    }
+    
+    private func formatTime(_ seconds: Int) -> String {
+        let hours = seconds / 3600
+        let minutes = (seconds % 3600) / 60
+        
+        if hours > 0 {
+            return String(format: "%dh %02dm", hours, minutes)
+        } else {
+            return String(format: "%dm", minutes)
+        }
     }
 }

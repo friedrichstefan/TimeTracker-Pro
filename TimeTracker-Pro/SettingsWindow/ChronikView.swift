@@ -1,10 +1,3 @@
-//
-//  ChronikView.swift
-//  TimeTracker-Pro
-//
-//  Created by Friedrich, Stefan on 13.12.25.
-//
-
 import SwiftUI
 
 struct ChronikView: View {
@@ -92,6 +85,13 @@ struct ChronikView: View {
             
             ScrollView {
                 VStack(alignment: .leading, spacing: 28) {
+                    // Arbeitszeit-Zusammenfassung
+                    WorkTimeSummaryCard(
+                        todayWorkTime: workTimeForDate,
+                        targetWorkTime: timeModel.targetWorkHours * 3600,
+                        isToday: isToday
+                    )
+                    
                     // Statistik-Karten
                     HStack(spacing: 20) {
                         StatisticCard(
@@ -182,6 +182,142 @@ struct ChronikView: View {
             return String(format: "%dm", minutes)
         } else {
             return "0m"
+        }
+    }
+}
+
+struct WorkTimeSummaryCard: View {
+    let todayWorkTime: Int
+    let targetWorkTime: Int
+    let isToday: Bool
+    @Environment(\.colorScheme) var colorScheme
+    
+    private var progress: Double {
+        guard targetWorkTime > 0 else { return 0 }
+        return min(1.0, Double(todayWorkTime) / Double(targetWorkTime))
+    }
+    
+    private var remainingTime: Int {
+        return max(0, targetWorkTime - todayWorkTime)
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(isToday ? "Heutiger Fortschritt" : "Tagesfortschritt")
+                        .font(.headline)
+                    
+                    Text("Arbeitszeit-Ziel: \(formatTime(targetWorkTime))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                
+                Spacer()
+                
+                // Circular Progress
+                ZStack {
+                    Circle()
+                        .stroke(.quaternary, lineWidth: 8)
+                        .frame(width: 60, height: 60)
+                    
+                    Circle()
+                        .trim(from: 0, to: progress)
+                        .stroke(
+                            progressColor(),
+                            style: StrokeStyle(lineWidth: 8, lineCap: .round)
+                        )
+                        .rotationEffect(.degrees(-90))
+                        .frame(width: 60, height: 60)
+                        .animation(.easeInOut(duration: 0.3), value: progress)
+                    
+                    Text("\(Int(progress * 100))%")
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .foregroundStyle(progressColor())
+                }
+            }
+            
+            VStack(spacing: 8) {
+                HStack {
+                    Text("Gearbeitet:")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    
+                    Spacer()
+                    
+                    Text(formatTime(todayWorkTime))
+                        .font(.system(.subheadline, design: .monospaced))
+                        .fontWeight(.semibold)
+                }
+                
+                if remainingTime > 0 && isToday {
+                    HStack {
+                        Text("Verbleibend:")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        
+                        Spacer()
+                        
+                        Text(formatTime(remainingTime))
+                            .font(.system(.subheadline, design: .monospaced))
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.orange)
+                    }
+                } else if progress >= 1.0 {
+                    HStack {
+                        Text("Status:")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        
+                        Spacer()
+                        
+                        HStack(spacing: 4) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                                .font(.subheadline)
+                            Text("Ziel erreicht!")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.green)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(20)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(progressColor().opacity(0.3), lineWidth: 1)
+        )
+        .shadow(
+            color: .black.opacity(colorScheme == .dark ? 0.3 : 0.1),
+            radius: colorScheme == .dark ? 8 : 4,
+            x: 0,
+            y: 2
+        )
+    }
+    
+    private func progressColor() -> Color {
+        if progress >= 1.0 {
+            return .green
+        } else if progress >= 0.75 {
+            return .blue
+        } else if progress >= 0.5 {
+            return .orange
+        } else {
+            return .red
+        }
+    }
+    
+    private func formatTime(_ seconds: Int) -> String {
+        let hours = seconds / 3600
+        let minutes = (seconds % 3600) / 60
+        
+        if hours > 0 {
+            return String(format: "%dh %02dm", hours, minutes)
+        } else {
+            return String(format: "%dm", minutes)
         }
     }
 }
@@ -382,7 +518,7 @@ struct EmptyDayView: View {
     }
 }
 
-// MARK: - Button Styles mit Dark/Light Mode
+// MARK: - Button Styles
 
 struct DateNavigationButtonStyle: ButtonStyle {
     @Environment(\.colorScheme) var colorScheme

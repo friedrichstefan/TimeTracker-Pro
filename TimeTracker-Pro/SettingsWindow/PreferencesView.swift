@@ -241,6 +241,81 @@ struct SettingsPane: View {
                     }
                 }
                 
+                // NEUE Arbeitszeit-Monitoring Karte
+                ModernCard {
+                    VStack(alignment: .leading, spacing: 20) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Arbeitszeit-Monitoring")
+                                    .font(.headline)
+                                    .foregroundStyle(.primary)
+                                
+                                Text("Überwachung und Erinnerungen für deine Arbeitszeit-Ziele")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            
+                            Spacer()
+                            
+                            Image(systemName: "bell.badge.fill")
+                                .font(.system(size: 24))
+                                .foregroundStyle(timeModel.workTimeMonitoringEnabled ? .blue : .secondary)
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 16) {
+                            ModernToggle(
+                                title: "Arbeitszeit-Erinnerungen",
+                                subtitle: "Benachrichtigungen über Tagesfortschritt und Ziele",
+                                isOn: $timeModel.workTimeMonitoringEnabled
+                            )
+                            
+                            if timeModel.workTimeMonitoringEnabled {
+                                VStack(spacing: 12) {
+                                    HStack {
+                                        Image(systemName: "info.circle")
+                                            .foregroundStyle(.blue)
+                                            .font(.system(size: 14))
+                                        
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text("Du erhältst Benachrichtigungen bei:")
+                                                .font(.caption)
+                                                .fontWeight(.medium)
+                                            
+                                            Text("• 50% des Tagesziels erreicht")
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                            
+                                            Text("• 75% des Tagesziels erreicht")
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                            
+                                            Text("• 100% - Tagesziel erreicht")
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                            
+                                            Text("• Erinnerung bei wenig Arbeitszeit am Nachmittag")
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        
+                                        Spacer()
+                                    }
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 12)
+                                .background(.blue.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+                                
+                                // Fortschrittsanzeige in StatusBar
+                                ModernToggle(
+                                    title: "Fortschritt in StatusBar",
+                                    subtitle: "Zeigt Arbeitszeit-Prozent in der Menüleiste",
+                                    isOn: $timeModel.showWorkProgressInStatusBar
+                                )
+                            }
+                        }
+                    }
+                }
+
                 // Timer-Verhalten
                 ModernCard {
                     VStack(alignment: .leading, spacing: 20) {

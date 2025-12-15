@@ -35,17 +35,13 @@ final class StatusBarController {
     private func setupStatusItem() {
         updateStatusBarTitle()
         
-        // StatusBar-Button für Dark/Light Mode optimieren
         if let button = statusItem.button {
-            // Automatische Farbanpassung für Dark/Light Mode
             button.imagePosition = .noImage
             button.font = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .regular)
         }
     }
     
-    // NEUE METHODE: Update für Appearance Changes
     func updateForAppearanceChange() {
-        // Menu neu erstellen für optimale Dark/Light Mode Darstellung
         setupMenu()
     }
     
@@ -54,16 +50,24 @@ final class StatusBarController {
             let seconds = timeModel.getCurrentTimerSeconds()
             let timerText = formatTimerString(seconds)
             
-            if let activeCategory = timeModel.activeCategory, timeModel.isTimerRunning {
-                button.title = "\(activeCategory.symbol) \(timerText)"
-            } else if seconds > 0 {
-                let maxCategory = getMaxCategory()
-                button.title = "\(maxCategory.symbol) \(timerText)"
-            } else {
-                button.title = "00:00"
+            // Nur Fortschritt anzeigen wenn aktiviert
+            var progressText = ""
+            if timeModel.showWorkProgressInStatusBar {
+                let todayWorkSeconds = timeModel.getWorkTimeForDate(Date())
+                let targetSeconds = timeModel.targetWorkHours * 3600
+                let progressPercentage = targetSeconds > 0 ? min(100, (todayWorkSeconds * 100) / targetSeconds) : 0
+                progressText = " (\(progressPercentage)%)"
             }
             
-            // Dynamische Farbanpassung
+            if let activeCategory = timeModel.activeCategory, timeModel.isTimerRunning {
+                button.title = "\(activeCategory.symbol) \(timerText)\(progressText)"
+            } else if seconds > 0 {
+                let maxCategory = getMaxCategory()
+                button.title = "\(maxCategory.symbol) \(timerText)\(progressText)"
+            } else {
+                button.title = "00:00\(progressText)"
+            }
+            
             button.font = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .regular)
         }
     }
@@ -94,16 +98,13 @@ final class StatusBarController {
     
     private func setupMenu() {
         let menu = NSMenu()
-        
-        // Menu für Dark/Light Mode optimieren
-        menu.appearance = nil // Folgt dem System
+        menu.appearance = nil
 
-        // Timer-Steuerung mit Dark/Light Mode Support
         let timerView = MenuTimerView(timeModel: timeModel)
         let timerHostingController = NSHostingController(rootView: timerView)
         let timerHostingView = timerHostingController.view
         
-        timerHostingView.frame = NSRect(x: 0, y: 0, width: 380, height: 230)
+        timerHostingView.frame = NSRect(x: 0, y: 0, width: 380, height: 280)
         timerHostingView.translatesAutoresizingMaskIntoConstraints = true
 
         let timerMenuItem = NSMenuItem()

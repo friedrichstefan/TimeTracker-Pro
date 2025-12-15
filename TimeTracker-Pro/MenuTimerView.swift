@@ -1,15 +1,21 @@
-//
-//  MenuTimerView.swift
-//  TimeTracker-Pro
-//
-//  Created by Friedrich, Stefan on 13.12.25.
-//
-
 import SwiftUI
 
 struct MenuTimerView: View {
     @ObservedObject var timeModel: TimeModel
     @Environment(\.colorScheme) var colorScheme
+    
+    private var todayWorkTime: Int {
+        timeModel.getWorkTimeForDate(Date())
+    }
+    
+    private var targetWorkTime: Int {
+        timeModel.targetWorkHours * 3600
+    }
+    
+    private var workProgress: Double {
+        guard targetWorkTime > 0 else { return 0 }
+        return min(1.0, Double(todayWorkTime) / Double(targetWorkTime))
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -38,6 +44,56 @@ struct MenuTimerView: View {
             }
             .frame(height: 50)
             .frame(maxWidth: .infinity)
+            
+            // Arbeitszeit-Fortschritt - NUR WENN AKTIVIERT
+            if timeModel.workTimeMonitoringEnabled {
+                VStack(spacing: 8) {
+                    HStack {
+                        Text("Heute gearbeitet")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        
+                        Spacer()
+                        
+                        Text("\(formatTime(todayWorkTime)) / \(formatTime(targetWorkTime))")
+                            .font(.system(.caption, design: .monospaced))
+                            .fontWeight(.medium)
+                    }
+                    
+                    // Fortschrittsbalken
+                    ProgressView(value: workProgress)
+                        .progressViewStyle(WorkProgressStyle())
+                        .frame(height: 6)
+                    
+                    HStack {
+                        Text("\(Int(workProgress * 100))% erreicht")
+                            .font(.caption2)
+                            .foregroundStyle(workProgress >= 1.0 ? .green : .secondary)
+                        
+                        Spacer()
+                        
+                        if workProgress >= 1.0 {
+                            HStack(spacing: 2) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(.green)
+                                    .font(.caption2)
+                                Text("Ziel erreicht!")
+                                    .font(.caption2)
+                                    .foregroundStyle(.green)
+                            }
+                        } else {
+                            let remaining = targetWorkTime - todayWorkTime
+                            Text("noch \(formatTime(remaining))")
+                                .font(.caption2)
+                                .foregroundStyle(.orange)
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
+                .padding(.horizontal, 16)
+            }
             
             // Kategorie-Buttons
             HStack(spacing: 8) {
@@ -77,7 +133,7 @@ struct MenuTimerView: View {
             .frame(maxWidth: .infinity)
             .padding(.top, 8)
         }
-        .frame(width: 360, height: 210)
+        .frame(width: 360, height: timeModel.workTimeMonitoringEnabled ? 280 : 210) // Dynamische Höhe
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(color: .black.opacity(colorScheme == .dark ? 0.3 : 0.1), radius: 20, x: 0, y: 8)
         .shadow(color: .black.opacity(colorScheme == .dark ? 0.1 : 0.05), radius: 1, x: 0, y: 1)
@@ -92,6 +148,58 @@ struct MenuTimerView: View {
             return String(format: "%d:%02d:%02d", hours, minutes, secs)
         } else {
             return String(format: "%02d:%02d", minutes, secs)
+        }
+    }
+    
+    private func formatTime(_ seconds: Int) -> String {
+        let hours = seconds / 3600
+        let minutes = (seconds % 3600) / 60
+        
+        if hours > 0 {
+            return String(format: "%dh %02dm", hours, minutes)
+        } else {
+            return String(format: "%dm", minutes)
+        }
+    }
+}
+
+struct WorkProgressStyle: ProgressViewStyle {
+    @Environment(\.colorScheme) var colorScheme
+    
+    func makeBody(configuration: Configuration) -> some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                Rectangle()
+                    .fill(.quaternary)
+                    .frame(height: 6)
+                
+                Rectangle()
+                    .fill(progressColor(for: configuration.fractionCompleted ?? 0))
+                    .frame(
+                        width: geometry.size.width * CGFloat(configuration.fractionCompleted ?? 0),
+                        height: 6
+                    )
+                    .shadow(
+                        color: progressColor(for: configuration.fractionCompleted ?? 0).opacity(colorScheme == .dark ? 0.6 : 0.3),
+                        radius: colorScheme == .dark ? 2 : 1,
+                        x: 0,
+                        y: 1
+                    )
+                    .animation(.easeInOut(duration: 0.3), value: configuration.fractionCompleted)
+            }
+        }
+        .clipShape(Capsule())
+    }
+    
+    private func progressColor(for progress: Double) -> Color {
+        if progress >= 1.0 {
+            return .green
+        } else if progress >= 0.75 {
+            return .blue
+        } else if progress >= 0.5 {
+            return .orange
+        } else {
+            return .red
         }
     }
 }
@@ -157,7 +265,7 @@ struct CategoryTimerButton: View {
     }
 }
 
-// MARK: - Button Styles mit Dark/Light Mode
+// MARK: - Button Styles
 
 struct CategoryButtonStyle: ButtonStyle {
     let isActive: Bool
