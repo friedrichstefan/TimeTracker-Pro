@@ -7,6 +7,7 @@
 
 import Foundation
 import Combine
+import AppKit
 
 enum TimerCategory: String, CaseIterable, Codable {
     case work = "work"
@@ -38,24 +39,43 @@ enum TimerCategory: String, CaseIterable, Codable {
     }
 }
 
+struct AppUsage: Identifiable, Codable {
+    let id = UUID()
+    let bundleID: String
+    let appName: String
+    let duration: Int // in Sekunden
+    let category: TimerCategory
+    let date: Date
+    
+    // Custom initializer für UUID-Problem
+    init(bundleID: String, appName: String, duration: Int, category: TimerCategory, date: Date) {
+        self.bundleID = bundleID
+        self.appName = appName
+        self.duration = duration
+        self.category = category
+        self.date = date
+    }
+}
+
 struct TimerSession: Identifiable, Codable {
-    let id: UUID  // KORRIGIERT: Ohne Initialwert
+    let id: UUID
     let category: TimerCategory
     let startTime: Date
     let endTime: Date?
-    let duration: Int // in Sekunden
+    let duration: Int
+    var appUsages: [AppUsage] = []
     
     var isActive: Bool {
         return endTime == nil
     }
     
-    // HINZUGEFÜGT: Custom initializer
-    init(category: TimerCategory, startTime: Date, endTime: Date?, duration: Int) {
+    init(category: TimerCategory, startTime: Date, endTime: Date?, duration: Int, appUsages: [AppUsage] = []) {
         self.id = UUID()
         self.category = category
         self.startTime = startTime
         self.endTime = endTime
         self.duration = duration
+        self.appUsages = appUsages
     }
 }
 
@@ -85,6 +105,15 @@ final class TimeModel: ObservableObject {
     // Chronik
     @Published var timerSessions: [TimerSession] = []
     private var currentSession: TimerSession?
+    
+    // App-Tracking - NEU
+    @Published var isAppTrackingEnabled: Bool {
+        didSet { UserDefaults.standard.set(isAppTrackingEnabled, forKey: Keys.isAppTrackingEnabled) }
+    }
+    
+    private var appTrackingTimer: Timer?
+    private var currentAppUsages: [String: (String, Int)] = [:] // bundleID: (appName, duration)
+    private var lastActiveApp: String = ""
 
     private var clockTimer: Timer?
     private var countdownTimer: Timer?
@@ -99,6 +128,7 @@ final class TimeModel: ObservableObject {
         static let coffeeSeconds = "TimeTracker_CoffeeSeconds"
         static let lunchSeconds = "TimeTracker_LunchSeconds"
         static let timerSessions = "TimeTracker_TimerSessions"
+        static let isAppTrackingEnabled = "TimeTracker_IsAppTrackingEnabled"
     }
 
     init() {
@@ -107,10 +137,12 @@ final class TimeModel: ObservableObject {
         if defaults.object(forKey: Keys.use24Hour) == nil { defaults.set(false, forKey: Keys.use24Hour) }
         if defaults.object(forKey: Keys.showDate) == nil { defaults.set(false, forKey: Keys.showDate) }
         if defaults.object(forKey: Keys.largeClockFontSize) == nil { defaults.set(36.0, forKey: Keys.largeClockFontSize) }
+        if defaults.object(forKey: Keys.isAppTrackingEnabled) == nil { defaults.set(false, forKey: Keys.isAppTrackingEnabled) }
 
         showSeconds = defaults.bool(forKey: Keys.showSeconds)
         use24Hour = defaults.bool(forKey: Keys.use24Hour)
         showDate = defaults.bool(forKey: Keys.showDate)
+        isAppTrackingEnabled = defaults.bool(forKey: Keys.isAppTrackingEnabled)
 
         let savedSize = defaults.double(forKey: Keys.largeClockFontSize)
         largeClockFontSize = savedSize > 0 ? savedSize : 36.0
@@ -130,21 +162,26 @@ final class TimeModel: ObservableObject {
     deinit {
         clockTimer?.invalidate()
         countdownTimer?.invalidate()
+        appTrackingTimer?.invalidate()
     }
 
-    // Timer-Funktionen
+    // Timer-Funktionen - ERWEITERT
     func startTimer(for category: TimerCategory) {
         stopTimer() // Stoppe aktuellen Timer falls läuft
         activeCategory = category
         isTimerRunning = true
         
-        // Erstelle neue Session
         currentSession = TimerSession(
             category: category,
             startTime: Date(),
             endTime: nil,
             duration: 0
         )
+        
+        // App-Tracking starten - NUR für Arbeit
+        if isAppTrackingEnabled && category == .work {
+            startAppTracking()
+        }
         
         countdownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             guard let self = self else { return }
@@ -171,27 +208,43 @@ final class TimeModel: ObservableObject {
             activeCategory = nil
             countdownTimer?.invalidate()
             countdownTimer = nil
+            stopAppTracking()
             return
         }
+        
+        // App-Tracking stoppen
+        stopAppTracking()
         
         isTimerRunning = false
         activeCategory = nil
         countdownTimer?.invalidate()
         countdownTimer = nil
         
-        // Beende aktuelle Session
         let endTime = Date()
         let duration = Int(endTime.timeIntervalSince(session.startTime))
+        
+        // App-Usages hinzufügen
+        let appUsages = currentAppUsages.map { (bundleID, data) in
+            AppUsage(
+                bundleID: bundleID,
+                appName: data.0,
+                duration: data.1,
+                category: session.category,
+                date: session.startTime
+            )
+        }
         
         let completedSession = TimerSession(
             category: session.category,
             startTime: session.startTime,
             endTime: endTime,
-            duration: duration
+            duration: duration,
+            appUsages: appUsages
         )
         
         timerSessions.insert(completedSession, at: 0) // Neueste zuerst
         currentSession = nil
+        currentAppUsages.removeAll()
         
         saveTimerSessions()
     }
@@ -217,6 +270,34 @@ final class TimeModel: ObservableObject {
         case .coffee: return coffeeSeconds
         case .lunch: return lunchSeconds
         }
+    }
+    
+    // App-Tracking Funktionen - NEU
+    private func startAppTracking() {
+        currentAppUsages.removeAll()
+        lastActiveApp = ""
+        appTrackingTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+            self?.trackCurrentApp()
+        }
+        RunLoop.current.add(appTrackingTimer!, forMode: .common)
+    }
+    
+    private func stopAppTracking() {
+        appTrackingTimer?.invalidate()
+        appTrackingTimer = nil
+    }
+    
+    private func trackCurrentApp() {
+        guard let activeApp = NSWorkspace.shared.frontmostApplication else { return }
+        guard let bundleID = activeApp.bundleIdentifier else { return }
+        
+        let appName = activeApp.localizedName ?? "Unbekannt"
+        
+        // App-Zeit hinzufügen (alle 5 Sekunden)
+        let current = currentAppUsages[bundleID] ?? (appName, 0)
+        currentAppUsages[bundleID] = (current.0, current.1 + 5)
+        
+        lastActiveApp = bundleID
     }
     
     // Erweiterte Chronik-Funktionen
@@ -262,6 +343,32 @@ final class TimeModel: ObservableObject {
         }
         
         saveTimerSessions()
+    }
+    
+    // Analyse-Funktionen - NEU
+    func getAppUsagesForDate(_ date: Date, category: TimerCategory = .work) -> [AppUsage] {
+        let sessions = getSessionsForDate(date).filter { $0.category == category }
+        return sessions.flatMap { $0.appUsages }
+    }
+    
+    func getAggregatedAppUsagesForDate(_ date: Date, category: TimerCategory = .work) -> [AppUsage] {
+        let allUsages = getAppUsagesForDate(date, category: category)
+        var aggregated: [String: (String, Int)] = [:]
+        
+        for usage in allUsages {
+            let current = aggregated[usage.bundleID] ?? (usage.appName, 0)
+            aggregated[usage.bundleID] = (current.0, current.1 + usage.duration)
+        }
+        
+        return aggregated.map { (bundleID, data) in
+            AppUsage(
+                bundleID: bundleID,
+                appName: data.0,
+                duration: data.1,
+                category: category,
+                date: date
+            )
+        }.sorted { $0.duration > $1.duration }
     }
     
     // Chronik-Funktionen
