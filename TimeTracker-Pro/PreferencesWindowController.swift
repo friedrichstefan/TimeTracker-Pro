@@ -9,8 +9,10 @@ import AppKit
 import SwiftUI
 
 class PreferencesWindowController: NSWindowController {
+    private var preferencesState = PreferencesState()
+    
     init(timeModel: TimeModel) {
-        let contentView = PreferencesView(timeModel: timeModel)
+        let contentView = PreferencesView(timeModel: timeModel, preferencesState: preferencesState)
         let hosting = NSHostingController(rootView: contentView)
 
         // Erstelle ein modernes Fenster
@@ -43,6 +45,11 @@ class PreferencesWindowController: NSWindowController {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+    
+    // NEUE METHODE HINZUGEFÜGT
+    func setSelectedTab(_ tab: PrefsTab) {
+        preferencesState.setSelectedTab(tab)
     }
     
     override func showWindow(_ sender: Any?) {

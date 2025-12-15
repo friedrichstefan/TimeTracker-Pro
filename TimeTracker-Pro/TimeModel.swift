@@ -8,6 +8,7 @@
 import Foundation
 import Combine
 import AppKit
+import UniformTypeIdentifiers
 
 enum TimerCategory: String, CaseIterable, Codable {
     case work = "work"
@@ -110,6 +111,43 @@ final class TimeModel: ObservableObject {
     @Published var isAppTrackingEnabled: Bool {
         didSet { UserDefaults.standard.set(isAppTrackingEnabled, forKey: Keys.isAppTrackingEnabled) }
     }
+    // Arbeitszeit-Einstellungen
+    @Published var targetWorkHours: Int {
+        didSet { UserDefaults.standard.set(targetWorkHours, forKey: Keys.targetWorkHours) }
+    }
+    @Published var workStartTime: Date {
+        didSet { UserDefaults.standard.set(workStartTime, forKey: Keys.workStartTime) }
+    }
+    @Published var workEndTime: Date {
+        didSet { UserDefaults.standard.set(workEndTime, forKey: Keys.workEndTime) }
+    }
+    @Published var includeWeekends: Bool {
+        didSet { UserDefaults.standard.set(includeWeekends, forKey: Keys.includeWeekends) }
+    }
+
+    // Timer-Verhalten
+    @Published var autoStopOnInactivity: Bool {
+        didSet { UserDefaults.standard.set(autoStopOnInactivity, forKey: Keys.autoStopOnInactivity) }
+    }
+    @Published var notificationsEnabled: Bool {
+        didSet { UserDefaults.standard.set(notificationsEnabled, forKey: Keys.notificationsEnabled) }
+    }
+    @Published var breakReminderInterval: Int {
+        didSet { UserDefaults.standard.set(breakReminderInterval, forKey: Keys.breakReminderInterval) }
+    }
+
+    // App-Tracking erweitert
+    @Published var trackOnlyProductiveApps: Bool {
+        didSet { UserDefaults.standard.set(trackOnlyProductiveApps, forKey: Keys.trackOnlyProductiveApps) }
+    }
+    @Published var warnUnproductiveApps: Bool {
+        didSet { UserDefaults.standard.set(warnUnproductiveApps, forKey: Keys.warnUnproductiveApps) }
+    }
+
+    // Daten-Export
+    @Published var dataRetentionDays: Int {
+        didSet { UserDefaults.standard.set(dataRetentionDays, forKey: Keys.dataRetentionDays) }
+    }
     
     private var appTrackingTimer: Timer?
     private var currentAppUsages: [String: (String, Int)] = [:] // bundleID: (appName, duration)
@@ -129,6 +167,18 @@ final class TimeModel: ObservableObject {
         static let lunchSeconds = "TimeTracker_LunchSeconds"
         static let timerSessions = "TimeTracker_TimerSessions"
         static let isAppTrackingEnabled = "TimeTracker_IsAppTrackingEnabled"
+        
+        // NEU HINZUGEFÜGT
+        static let targetWorkHours = "TimeTracker_TargetWorkHours"
+        static let workStartTime = "TimeTracker_WorkStartTime"
+        static let workEndTime = "TimeTracker_WorkEndTime"
+        static let includeWeekends = "TimeTracker_IncludeWeekends"
+        static let autoStopOnInactivity = "TimeTracker_AutoStopOnInactivity"
+        static let notificationsEnabled = "TimeTracker_NotificationsEnabled"
+        static let breakReminderInterval = "TimeTracker_BreakReminderInterval"
+        static let trackOnlyProductiveApps = "TimeTracker_TrackOnlyProductiveApps"
+        static let warnUnproductiveApps = "TimeTracker_WarnUnproductiveApps"
+        static let dataRetentionDays = "TimeTracker_DataRetentionDays"
     }
 
     init() {
@@ -138,6 +188,24 @@ final class TimeModel: ObservableObject {
         if defaults.object(forKey: Keys.showDate) == nil { defaults.set(false, forKey: Keys.showDate) }
         if defaults.object(forKey: Keys.largeClockFontSize) == nil { defaults.set(36.0, forKey: Keys.largeClockFontSize) }
         if defaults.object(forKey: Keys.isAppTrackingEnabled) == nil { defaults.set(false, forKey: Keys.isAppTrackingEnabled) }
+        
+        // NEU HINZUGEFÜGT - Standardwerte
+        if defaults.object(forKey: Keys.targetWorkHours) == nil { defaults.set(8, forKey: Keys.targetWorkHours) }
+        if defaults.object(forKey: Keys.workStartTime) == nil {
+            let startTime = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date()
+            defaults.set(startTime, forKey: Keys.workStartTime)
+        }
+        if defaults.object(forKey: Keys.workEndTime) == nil {
+            let endTime = Calendar.current.date(bySettingHour: 17, minute: 0, second: 0, of: Date()) ?? Date()
+            defaults.set(endTime, forKey: Keys.workEndTime)
+        }
+        if defaults.object(forKey: Keys.includeWeekends) == nil { defaults.set(false, forKey: Keys.includeWeekends) }
+        if defaults.object(forKey: Keys.autoStopOnInactivity) == nil { defaults.set(true, forKey: Keys.autoStopOnInactivity) }
+        if defaults.object(forKey: Keys.notificationsEnabled) == nil { defaults.set(false, forKey: Keys.notificationsEnabled) }
+        if defaults.object(forKey: Keys.breakReminderInterval) == nil { defaults.set(60, forKey: Keys.breakReminderInterval) }
+        if defaults.object(forKey: Keys.trackOnlyProductiveApps) == nil { defaults.set(false, forKey: Keys.trackOnlyProductiveApps) }
+        if defaults.object(forKey: Keys.warnUnproductiveApps) == nil { defaults.set(false, forKey: Keys.warnUnproductiveApps) }
+        if defaults.object(forKey: Keys.dataRetentionDays) == nil { defaults.set(0, forKey: Keys.dataRetentionDays) }
 
         showSeconds = defaults.bool(forKey: Keys.showSeconds)
         use24Hour = defaults.bool(forKey: Keys.use24Hour)
@@ -146,6 +214,18 @@ final class TimeModel: ObservableObject {
 
         let savedSize = defaults.double(forKey: Keys.largeClockFontSize)
         largeClockFontSize = savedSize > 0 ? savedSize : 36.0
+
+        // NEU HINZUGEFÜGT - Lade die neuen Properties
+        targetWorkHours = defaults.integer(forKey: Keys.targetWorkHours)
+        workStartTime = defaults.object(forKey: Keys.workStartTime) as? Date ?? Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date()
+        workEndTime = defaults.object(forKey: Keys.workEndTime) as? Date ?? Calendar.current.date(bySettingHour: 17, minute: 0, second: 0, of: Date()) ?? Date()
+        includeWeekends = defaults.bool(forKey: Keys.includeWeekends)
+        autoStopOnInactivity = defaults.bool(forKey: Keys.autoStopOnInactivity)
+        notificationsEnabled = defaults.bool(forKey: Keys.notificationsEnabled)
+        breakReminderInterval = defaults.integer(forKey: Keys.breakReminderInterval)
+        trackOnlyProductiveApps = defaults.bool(forKey: Keys.trackOnlyProductiveApps)
+        warnUnproductiveApps = defaults.bool(forKey: Keys.warnUnproductiveApps)
+        dataRetentionDays = defaults.integer(forKey: Keys.dataRetentionDays)
 
         // Lade gespeicherte Timer-Zeiten
         workSeconds = defaults.integer(forKey: Keys.workSeconds)
@@ -165,6 +245,57 @@ final class TimeModel: ObservableObject {
         appTrackingTimer?.invalidate()
     }
 
+    func exportToCSV() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.commaSeparatedText]
+        panel.nameFieldStringValue = "timetracker_export.csv"
+        
+        if panel.runModal() == .OK, let url = panel.url {
+            let csvContent = generateCSVContent()
+            try? csvContent.write(to: url, atomically: true, encoding: .utf8)
+        }
+    }
+
+    func exportToJSON() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "timetracker_export.json"
+        
+        if panel.runModal() == .OK, let url = panel.url {
+            if let jsonData = try? JSONEncoder().encode(timerSessions),
+               let jsonString = String(data: jsonData, encoding: .utf8) {
+                try? jsonString.write(to: url, atomically: true, encoding: .utf8)
+            }
+        }
+    }
+
+    private func generateCSVContent() -> String {
+        var content = "Datum,Startzeit,Endzeit,Kategorie,Dauer (Min),App-Name,App-Dauer (Min)\n"
+        
+        for session in timerSessions {
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateStyle = .short
+            dateFormatter.timeStyle = .short
+            
+            let date = dateFormatter.string(from: session.startTime).components(separatedBy: " ")[0]
+            let startTime = dateFormatter.string(from: session.startTime).components(separatedBy: " ")[1]
+            let endTime = session.endTime.map { dateFormatter.string(from: $0).components(separatedBy: " ")[1] } ?? "läuft"
+            
+            if session.appUsages.isEmpty {
+                content += "\(date),\(startTime),\(endTime),\(session.category.displayName),\(session.duration/60),,\n"
+            } else {
+                for appUsage in session.appUsages {
+                    content += "\(date),\(startTime),\(endTime),\(session.category.displayName),\(session.duration/60),\(appUsage.appName),\(appUsage.duration/60)\n"
+                }
+            }
+        }
+        
+        return content
+    }
+    
+    
+    
+    
     // Timer-Funktionen - ERWEITERT
     func startTimer(for category: TimerCategory) {
         stopTimer() // Stoppe aktuellen Timer falls läuft

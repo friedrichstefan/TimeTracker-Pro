@@ -98,8 +98,8 @@ final class StatusBarController {
 
         menu.addItem(NSMenuItem.separator())
         
-        // Detaills…
-        let detailItem = NSMenuItem(title: "Details…", action: #selector(handleOpenPreferences(_:)), keyEquivalent: ",")
+        // Details… -> GEÄNDERT: Führt zur App-Analyse
+        let detailItem = NSMenuItem(title: "Details…", action: #selector(handleOpenDetails(_:)), keyEquivalent: "d")
         detailItem.target = self
         menu.addItem(detailItem)
 
@@ -119,6 +119,11 @@ final class StatusBarController {
         menu.addItem(quitItem)
 
         statusItem.menu = menu
+    }
+    
+    
+    @objc func handleOpenDetails(_ sender: Any?) {
+        appDelegate?.openPreferencesWithAnalyse()  // Neue Methode in AppDelegate
     }
     
     // KORRIGIERTE METHODE

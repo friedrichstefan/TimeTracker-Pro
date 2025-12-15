@@ -17,7 +17,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Erstelle StatusBar mit Menu
         statusBarController = StatusBarController(timeModel: timeModel, appDelegate: self)
 
-        // Optional: lege ein Main Menu an, damit Cmd-, zuverlässig funktioniert
+        // Main Menu mit Settings-Button
         setupMainMenu()
     }
 
@@ -33,8 +33,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         appMenu.addItem(withTitle: "About \(appName)", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
         appMenu.addItem(NSMenuItem.separator())
 
+        // Settings-Button WIEDER HINZUFÜGEN - aber mit unserer Custom-Methode
         let prefsItem = NSMenuItem(title: "Einstellungen…", action: #selector(openPreferences(_:)), keyEquivalent: ",")
-        prefsItem.target = self
+        prefsItem.target = self  // WICHTIG: Ziel auf self setzen
         appMenu.addItem(prefsItem)
 
         appMenu.addItem(NSMenuItem.separator())
@@ -43,11 +44,39 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         appMenuItem.submenu = appMenu
     }
 
+    // Diese Methode wird für Cmd+, UND den Menü-Button aufgerufen
     @objc func openPreferences(_ sender: Any?) {
-        if prefsWindowController == nil {
-            prefsWindowController = PreferencesWindowController(timeModel: timeModel)
-        }
+        openPreferencesWithSettings()
+    }
+    
+    // Öffentliche Methoden für verschiedene Tabs
+    func openPreferencesWithDetails() {
+        openPreferencesWithTab(.chronik)
+    }
+    
+    func openPreferencesWithAnalyse() {
+        openPreferencesWithTab(.analyse)
+    }
+    
+    func openPreferencesWithSettings() {
+        openPreferencesWithTab(.settings)
+    }
+    
+    // Private Hilfsmethode
+    private func openPreferencesWithTab(_ tab: PrefsTab) {
+        // Fenster schließen falls bereits offen (verhindert Duplikate)
+        prefsWindowController?.close()
+        prefsWindowController = nil
+        
+        // Neues Fenster erstellen
+        prefsWindowController = PreferencesWindowController(timeModel: timeModel)
+        
+        // Tab setzen vor dem Anzeigen
+        prefsWindowController?.setSelectedTab(tab)
         prefsWindowController?.showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
+        
+        // Fenster in den Vordergrund bringen
+        prefsWindowController?.window?.makeKeyAndOrderFront(nil)
     }
 }

@@ -12,9 +12,13 @@ struct TimeTrackerProApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
-        // Kein sichtbares WindowGroup nötig für eine Menüleisten‑App
-        Settings {
+        // WICHTIG: Settings komplett entfernen, um Konflikte zu vermeiden
+        WindowGroup {
             EmptyView()
+                .frame(width: 0, height: 0)
+                .hidden()
         }
+        .windowStyle(HiddenTitleBarWindowStyle())
+        .windowResizability(.contentSize)
     }
 }

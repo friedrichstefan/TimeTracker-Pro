@@ -120,15 +120,15 @@ struct AnalyseView: View {
                             )
                         }
                     } else {
-                        // Chart und Liste - VEREINFACHT ohne Labels
+                        // Chart und Liste - MIT HOVER-EFFEKTEN
                         VStack(spacing: 32) {
-                            // Donut Chart ohne komplexe Labels
+                            // Interactive Donut Chart
                             VStack(spacing: 16) {
                                 Text("App-Verteilung")
                                     .font(.headline)
                                 
-                                SimpleDonutChartView(appUsages: appUsages)
-                                    .frame(width: 300, height: 300)
+                                InteractiveDonutChartView(appUsages: appUsages, totalDuration: totalDuration)
+                                    .frame(width: 350, height: 350)
                                 
                                 VStack(spacing: 4) {
                                     Text("Gesamtzeit")
@@ -143,7 +143,7 @@ struct AnalyseView: View {
                                 }
                             }
                             
-                            // App-Liste
+                            // App-Liste MIT ICONS
                             VStack(alignment: .leading, spacing: 16) {
                                 Text("Detailansicht")
                                     .font(.headline)
@@ -151,7 +151,7 @@ struct AnalyseView: View {
                                 ModernCard {
                                     LazyVStack(spacing: 0) {
                                         ForEach(Array(appUsages.prefix(10).enumerated()), id: \.element.id) { index, usage in
-                                            AppUsageRowView(
+                                            AppUsageRowWithIconView(
                                                 usage: usage,
                                                 totalDuration: totalDuration,
                                                 rank: index + 1
@@ -200,16 +200,20 @@ struct AnalyseView: View {
     }
 }
 
-// VEREINFACHTE VERSION ohne komplexe Label-Berechnung
-struct SimpleDonutChartView: View {
+// KORRIGIERTE INTERACTIVE DONUT CHART mit Hover-Effekten
+struct InteractiveDonutChartView: View {
     let appUsages: [AppUsage]
+    let totalDuration: Int
+    @State private var hoveredIndex: Int? = nil
+    @State private var selectedAngle: Double? = nil
+    @State private var appIcons: [String: NSImage] = [:]
     
-    private var chartData: [(String, Double, Color)] {
-        let total = Double(appUsages.reduce(0) { $0 + $1.duration })
+    private var chartData: [(String, Double, Color, Int, String)] {
+        let total = Double(totalDuration)
         return appUsages.prefix(8).enumerated().map { index, usage in
             let percentage = Double(usage.duration) / total
             let color = colors[index % colors.count]
-            return (usage.appName, percentage, color)
+            return (usage.appName, percentage, color, usage.duration, usage.bundleID)
         }
     }
     
@@ -219,41 +223,182 @@ struct SimpleDonutChartView: View {
     
     var body: some View {
         ZStack {
-            // Donut Chart
+            // Donut Chart mit Hover-Effekten
             Chart(Array(chartData.enumerated()), id: \.offset) { index, data in
                 SectorMark(
                     angle: .value("Usage", data.1),
-                    innerRadius: .ratio(0.5),
-                    outerRadius: .ratio(0.9)
+                    innerRadius: .ratio(0.45),
+                    outerRadius: .ratio(hoveredIndex == index ? 0.95 : 0.85),
+                    angularInset: 1.0
                 )
                 .foregroundStyle(data.2)
-                .opacity(0.8)
+                .opacity(hoveredIndex == nil || hoveredIndex == index ? 0.9 : 0.5)
+            }
+            .chartAngleSelection(value: $selectedAngle)
+            .onHover { isHovering in
+                if !isHovering {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        hoveredIndex = nil
+                    }
+                }
+            }
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        // Berechne welcher Sektor gehovered wird
+                        let center = CGPoint(x: 175, y: 175)
+                        let vector = CGPoint(x: value.location.x - center.x, y: value.location.y - center.y)
+                        let distance = sqrt(vector.x * vector.x + vector.y * vector.y)
+                        
+                        // Prüfe ob in Ring-Bereich (zwischen inner und outer radius)
+                        let innerRadius = 175 * 0.45
+                        let outerRadius = 175 * 0.95
+                        
+                        if distance >= innerRadius && distance <= outerRadius {
+                            let angle = atan2(vector.y, vector.x)
+                            let normalizedAngle = angle < 0 ? angle + 2 * .pi : angle
+                            
+                            // Berechne kumulative Winkel für jeden Sektor
+                            var cumulativeAngle: Double = -(.pi / 2) // Start bei 12 Uhr
+                            if cumulativeAngle < 0 { cumulativeAngle += 2 * .pi }
+                            
+                            for (index, data) in chartData.enumerated() {
+                                let sectorAngle = data.1 * 2 * .pi
+                                let endAngle = cumulativeAngle + sectorAngle
+                                
+                                if (normalizedAngle >= cumulativeAngle && normalizedAngle <= endAngle) ||
+                                   (cumulativeAngle > endAngle && (normalizedAngle >= cumulativeAngle || normalizedAngle <= endAngle)) {
+                                    withAnimation(.easeInOut(duration: 0.1)) {
+                                        hoveredIndex = index
+                                    }
+                                    break
+                                }
+                                cumulativeAngle = endAngle
+                                if cumulativeAngle >= 2 * .pi { cumulativeAngle -= 2 * .pi }
+                            }
+                        } else {
+                            withAnimation(.easeOut(duration: 0.2)) {
+                                hoveredIndex = nil
+                            }
+                        }
+                    }
+                    .onEnded { _ in
+                        // Hover bleibt bis explizit entfernt oder außerhalb bewegt
+                    }
+            )
+            
+            // Center Content mit Animation und APP-ICON
+            VStack(spacing: 8) {
+                if let hoveredIndex = hoveredIndex, hoveredIndex < chartData.count {
+                    // Hover-Info anzeigen MIT APP-ICON
+                    let hoveredData = chartData[hoveredIndex]
+                    
+                    VStack(spacing: 4) {
+                        // APP-ICON statt farbiges Quadrat
+                        Group {
+                            if let appIcon = appIcons[hoveredData.4] {
+                                Image(nsImage: appIcon)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                            } else {
+                                // Fallback-Icon mit der Chart-Farbe
+                                Image(systemName: "app.fill")
+                                    .foregroundStyle(hoveredData.2)
+                            }
+                        }
+                        .frame(width: 24, height: 24)
+                        .cornerRadius(5)
+                        
+                        Text(hoveredData.0)
+                            .font(.system(size: 14, weight: .semibold))
+                            .multilineTextAlignment(.center)
+                            .lineLimit(2)
+                        
+                        Text(formatDuration(hoveredData.3))
+                            .font(.system(size: 12, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                        
+                        Text("\(Int(hoveredData.1 * 100))%")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(hoveredData.2)
+                    }
+                    .transition(.scale.combined(with: .opacity))
+                } else {
+                    // Standard Center Text
+                    VStack(spacing: 4) {
+                        Image(systemName: "app.fill")
+                            .font(.system(size: 28))
+                            .foregroundStyle(.secondary)
+                        
+                        Text("\(appUsages.count)")
+                            .font(.system(.title, design: .monospaced))
+                            .fontWeight(.bold)
+                        
+                        Text("Apps")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .textCase(.uppercase)
+                            .tracking(0.5)
+                    }
+                    .transition(.scale.combined(with: .opacity))
+                }
+            }
+            .frame(width: 120, height: 120)
+            .animation(.easeInOut(duration: 0.25), value: hoveredIndex)
+        }
+        .onTapGesture {
+            // Reset hover beim Tap außerhalb
+            withAnimation(.easeOut(duration: 0.2)) {
+                hoveredIndex = nil
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: hoveredIndex)
+        .onAppear {
+            loadAllAppIcons()
+        }
+    }
+    
+    // NEUE FUNKTION: Lade alle App-Icons
+    private func loadAllAppIcons() {
+        for data in chartData {
+            let bundleID = data.4
+            loadAppIcon(for: bundleID)
+        }
+    }
+    
+    // NEUE FUNKTION: Lade einzelnes App-Icon
+    private func loadAppIcon(for bundleID: String) {
+        DispatchQueue.global(qos: .background).async {
+            guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
+                return
             }
             
-            // Center Text
-            VStack(spacing: 4) {
-                Image(systemName: "app.fill")
-                    .font(.system(size: 28))
-                    .foregroundStyle(.secondary)
-                
-                Text("\(appUsages.count)")
-                    .font(.system(.title, design: .monospaced))
-                    .fontWeight(.bold)
-                
-                Text("Apps")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
-                    .tracking(0.5)
+            let icon = NSWorkspace.shared.icon(forFile: appURL.path)
+            
+            DispatchQueue.main.async {
+                self.appIcons[bundleID] = icon
             }
         }
     }
+    
+    private func formatDuration(_ seconds: Int) -> String {
+        let hours = seconds / 3600
+        let minutes = (seconds % 3600) / 60
+        
+        if hours > 0 {
+            return String(format: "%dh %02dm", hours, minutes)
+        } else {
+            return String(format: "%dm", minutes)
+        }
+    }
 }
-
-struct AppUsageRowView: View {
+// AppUsageRowView mit App-Icon
+struct AppUsageRowWithIconView: View {
     let usage: AppUsage
     let totalDuration: Int
     let rank: Int
+    
+    @State private var appIcon: NSImage?
     
     private var percentage: Double {
         guard totalDuration > 0 else { return 0 }
@@ -273,10 +418,20 @@ struct AppUsageRowView: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 20)
             
-            // Farbe
-            Circle()
-                .fill(colors[(rank - 1) % colors.count])
-                .frame(width: 12, height: 12)
+            // APP-ICON statt Farbe
+            Group {
+                if let appIcon = appIcon {
+                    Image(nsImage: appIcon)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                } else {
+                    // Fallback-Icon falls App-Icon nicht geladen werden kann
+                    Image(systemName: "app.fill")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(width: 16, height: 16)
+            .cornerRadius(3)
             
             // App Info
             VStack(alignment: .leading, spacing: 2) {
@@ -315,6 +470,24 @@ struct AppUsageRowView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
+        .onAppear {
+            loadAppIcon()
+        }
+    }
+    
+    // App-Icon laden
+    private func loadAppIcon() {
+        DispatchQueue.global(qos: .background).async {
+            guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: usage.bundleID) else {
+                return
+            }
+            
+            let icon = NSWorkspace.shared.icon(forFile: appURL.path)
+            
+            DispatchQueue.main.async {
+                self.appIcon = icon
+            }
+        }
     }
     
     private func formatDuration(_ seconds: Int) -> String {
@@ -329,12 +502,12 @@ struct AppUsageRowView: View {
     }
 }
 
+// Empty State View
 struct EmptyAnalysisView: View {
     let category: TimerCategory
     let isToday: Bool
     
     var body: some View {
-    
         VStack(spacing: 16) {
             Image(systemName: "chart.pie")
                 .font(.system(size: 48))
