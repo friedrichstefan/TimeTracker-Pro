@@ -32,156 +32,120 @@ enum PrefsTab: String, CaseIterable, Hashable {
         }
     }
     
-    var isSettings: Bool {
-        return self == .settings
+    var needsDividerAfter: Bool {
+        return self == .analyse
     }
 }
 
 struct PreferencesView: View {
     @ObservedObject var timeModel: TimeModel
     @ObservedObject var preferencesState: PreferencesState
+    @Environment(\.colorScheme) var colorScheme
     
-    init(timeModel: TimeModel, preferencesState: PreferencesState) {
-        self.timeModel = timeModel
-        self.preferencesState = preferencesState
-    }
+    // Kontrolle über Sidebar-Sichtbarkeit
+    @State private var columnVisibility = NavigationSplitViewVisibility.all
     
     var body: some View {
-        NavigationSplitView(columnVisibility: .constant(.all)) {
-            // Moderne Sidebar mit verbesserter Struktur
-            VStack(spacing: 0) {
-                // Header
-                HStack {
-                    VStack(spacing: 8) {
-                        Text("TimeTracker Pro")
-                            .font(.headline)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(.primary)
-                        
-                        Text("Einstellungen")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    
-                }
-                .padding(.top, 20)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 16)
-                
-                // Navigation Items - aufgeteilt in Bereiche
-                VStack(spacing: 4) {
-                    // Haupt-Navigation
-                    ForEach(PrefsTab.allCases.filter { !$0.isSettings }, id: \.self) { tab in
-                        ModernSidebarItem(
-                            tab: tab,
-                            isSelected: preferencesState.selectedTab == tab
-                        ) {
-                            preferencesState.selectedTab = tab
-                        }
-                    }
-                    
-                    // Trennlinie
-                    Divider()
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                    
-                    // Einstellungen (separiert)
-                    ForEach(PrefsTab.allCases.filter { $0.isSettings }, id: \.self) { tab in
-                        ModernSidebarItem(
-                            tab: tab,
-                            isSelected: preferencesState.selectedTab == tab
-                        ) {
-                            preferencesState.selectedTab = tab
-                        }
-                    }
-                }
-                .padding(.horizontal, 12)
-                
-                Spacer()
-                
-                // Footer mit drei Punkten (wie in Xcode)
-                HStack {
-                    Spacer()
-                    
-                    Button(action: {
-                        // Optionales Aktions-Menu
-                    }) {
-                        Image(systemName: "ellipsis")
-                            .font(.system(size: 14))
-                            .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    .padding(.bottom, 16)
-                    .padding(.trailing, 16)
-                }
-            }
-            .frame(minWidth: 200)
-            .background(.regularMaterial)
+        NavigationSplitView(columnVisibility: $columnVisibility) {
+            // Sidebar Content
+            XcodeSidebarContent(selectedTab: $preferencesState.selectedTab)
+                .navigationSplitViewColumnWidth(min: 200, ideal: 260, max: 300)
         } detail: {
-            // Detail View
-            VStack(spacing: 0) {
-                Group {
-                    switch preferencesState.selectedTab {
-                    case .timerDetails:
-                        TimerDetailView(timeModel: timeModel)
-                    case .chronik:
-                        ChronikView(timeModel: timeModel)
-                    case .analyse:
-                        AnalyseView(timeModel: timeModel)
-                    case .settings:
-                        SettingsPane(timeModel: timeModel)
+            // Detail Content
+            DetailContentView(
+                selectedTab: preferencesState.selectedTab,
+                timeModel: timeModel
+            )
+            .toolbar {
+                ToolbarItem(placement: .navigation) {
+                    Button {
+                        toggleSidebar()
+                    } label: {
+                        Image(systemName: "sidebar.left")
                     }
+                    .help("Sidebar ein-/ausblenden")
                 }
-                .background(Color(NSColor.windowBackgroundColor))
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 2)
-                .padding(16)
-                .background(Color(NSColor.controlBackgroundColor))
             }
         }
-        .frame(minWidth: 800, minHeight: 550)
         .navigationSplitViewStyle(.balanced)
     }
-}
-
-// MARK: - Moderne UI Komponenten
-
-struct ModernSidebarItem: View {
-    let tab: PrefsTab
-    let isSelected: Bool
-    let action: () -> Void
     
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                Image(systemName: tab.systemImage)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(isSelected ? .white : .primary)
-                    .frame(width: 18)
-                
-                Text(tab.title)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(isSelected ? .white : .primary)
-                
-                Spacer()
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 36)
-            .padding(.horizontal, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(isSelected ? .blue : .clear)
-            )
+    private func toggleSidebar() {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            columnVisibility = columnVisibility == .all ? .detailOnly : .all
         }
-        .buttonStyle(PlainButtonStyle())
-        .animation(.easeInOut(duration: 0.2), value: isSelected)
     }
 }
 
-// MARK: - Detail Views
+// MARK: - Sidebar Content (angepasst für NavigationSplitView)
+
+struct XcodeSidebarContent: View {
+    @Binding var selectedTab: PrefsTab
+    @Environment(\.colorScheme) var colorScheme
+    
+    var body: some View {
+        List(selection: $selectedTab) {
+            ForEach(PrefsTab.allCases, id: \.self) { tab in
+                XcodeSidebarLabel(tab: tab)
+                    .tag(tab)
+                
+                // Trennstrich nach App-Analyse - außerhalb der Selection
+                if tab.needsDividerAfter {
+                    VStack {
+                        Divider()
+                            .padding(.vertical, 4)
+                    }
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets())
+                    .selectionDisabled()
+                }
+            }
+        }
+        .listStyle(.sidebar)
+        .navigationTitle("Einstellungen")
+    }
+}
+
+struct XcodeSidebarLabel: View {
+    let tab: PrefsTab
+    
+    var body: some View {
+        Label(tab.title, systemImage: tab.systemImage)
+            .font(.system(size: 14, weight: .medium))
+    }
+}
+
+// MARK: - Detail Content View
+
+struct DetailContentView: View {
+    let selectedTab: PrefsTab
+    @ObservedObject var timeModel: TimeModel
+    
+    var body: some View {
+        Group {
+            switch selectedTab {
+            case .timerDetails:
+                TimerDetailView(timeModel: timeModel)
+            case .chronik:
+                ChronikView(timeModel: timeModel)
+            case .analyse:
+                AnalyseView(timeModel: timeModel)
+            case .settings:
+                SettingsPane(timeModel: timeModel)
+            }
+        }
+        .transition(.asymmetric(
+            insertion: .move(edge: .trailing).combined(with: .opacity),
+            removal: .move(edge: .leading).combined(with: .opacity)
+        ))
+    }
+}
+
+// MARK: - Settings Pane
 
 struct SettingsPane: View {
     @ObservedObject var timeModel: TimeModel
+    @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
         ScrollView {
@@ -474,10 +438,11 @@ struct SettingsPane: View {
     }
 }
 
-// MARK: - Button Styles
+// MARK: - UI Components
 
 struct ExportButtonStyle: ButtonStyle {
     let color: Color
+    @Environment(\.colorScheme) var colorScheme
     
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -487,15 +452,20 @@ struct ExportButtonStyle: ButtonStyle {
             .padding(.vertical, 8)
             .background(color, in: RoundedRectangle(cornerRadius: 6))
             .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .shadow(
+                color: color.opacity(colorScheme == .dark ? 0.4 : 0.2),
+                radius: colorScheme == .dark ? 3 : 2,
+                x: 0,
+                y: 1
+            )
             .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
     }
 }
 
-// MARK: - Moderne UI Komponenten
-
 struct ModernSectionHeader: View {
     let title: String
     let subtitle: String
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -514,6 +484,7 @@ struct ModernSectionHeader: View {
 
 struct ModernCard<Content: View>: View {
     let content: Content
+    @Environment(\.colorScheme) var colorScheme
     
     init(@ViewBuilder content: () -> Content) {
         self.content = content()
@@ -529,6 +500,12 @@ struct ModernCard<Content: View>: View {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(.quaternary, lineWidth: 0.5)
         )
+        .shadow(
+            color: .black.opacity(colorScheme == .dark ? 0.3 : 0.1),
+            radius: colorScheme == .dark ? 8 : 4,
+            x: 0,
+            y: 2
+        )
     }
 }
 
@@ -536,6 +513,7 @@ struct ModernToggle: View {
     let title: String
     let subtitle: String
     @Binding var isOn: Bool
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         HStack(spacing: 16) {

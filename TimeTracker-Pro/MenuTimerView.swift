@@ -9,10 +9,11 @@ import SwiftUI
 
 struct MenuTimerView: View {
     @ObservedObject var timeModel: TimeModel
+    @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header mit aktueller Zeit - FESTE HÖHE
+            // Header mit aktueller Zeit
             VStack(spacing: 4) {
                 HStack {
                     if let activeCategory = timeModel.activeCategory, timeModel.isTimerRunning {
@@ -28,7 +29,6 @@ struct MenuTimerView: View {
                     }
                 }
                 
-                // STATUS TEXT MIT FESTER HÖHE
                 Text(timeModel.isTimerRunning ? "LÄUFT" : "BEREIT")
                     .font(.caption2)
                     .foregroundStyle(timeModel.isTimerRunning ? .blue : .secondary)
@@ -39,7 +39,7 @@ struct MenuTimerView: View {
             .frame(height: 50)
             .frame(maxWidth: .infinity)
             
-            // Kategorie-Buttons mit ANGEPASSTER HÖHE
+            // Kategorie-Buttons
             HStack(spacing: 8) {
                 ForEach(TimerCategory.allCases, id: \.self) { category in
                     CategoryTimerButton(
@@ -59,7 +59,6 @@ struct MenuTimerView: View {
                     }
                     .buttonStyle(StoppButtonStyle())
                 } else {
-                    // Unsichtbarer Platzhalter
                     Text("")
                         .frame(height: 32)
                 }
@@ -68,9 +67,8 @@ struct MenuTimerView: View {
                     Button("Zurücksetzen") {
                         timeModel.resetAllTimers()
                     }
-                    .buttonStyle(MenuResetButtonStyle()) // UMBENANNT
+                    .buttonStyle(MenuResetButtonStyle())
                 } else {
-                    // Unsichtbarer Platzhalter
                     Text("")
                         .frame(height: 26)
                 }
@@ -81,8 +79,8 @@ struct MenuTimerView: View {
         }
         .frame(width: 360, height: 210)
         .clipShape(RoundedRectangle(cornerRadius: 12))
-        .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 8)
-        .shadow(color: .black.opacity(0.05), radius: 1, x: 0, y: 1)
+        .shadow(color: .black.opacity(colorScheme == .dark ? 0.3 : 0.1), radius: 20, x: 0, y: 8)
+        .shadow(color: .black.opacity(colorScheme == .dark ? 0.1 : 0.05), radius: 1, x: 0, y: 1)
     }
     
     private func formatTimerTime(_ seconds: Int) -> String {
@@ -101,6 +99,7 @@ struct MenuTimerView: View {
 struct CategoryTimerButton: View {
     let category: TimerCategory
     @ObservedObject var timeModel: TimeModel
+    @Environment(\.colorScheme) var colorScheme
     
     private var isActive: Bool {
         timeModel.activeCategory == category && timeModel.isTimerRunning
@@ -156,21 +155,14 @@ struct CategoryTimerButton: View {
             return String(format: "%02d:%02d", minutes, seconds % 60)
         }
     }
-    
-    private func accentColor() -> Color {
-        switch category {
-        case .work: return .blue
-        case .coffee: return .orange
-        case .lunch: return .green
-        }
-    }
 }
 
-// MARK: - Button Styles
+// MARK: - Button Styles mit Dark/Light Mode
 
 struct CategoryButtonStyle: ButtonStyle {
     let isActive: Bool
     let category: TimerCategory
+    @Environment(\.colorScheme) var colorScheme
     
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -179,7 +171,7 @@ struct CategoryButtonStyle: ButtonStyle {
                     .fill(backgroundColorForState(configuration.isPressed))
                     .shadow(
                         color: shadowColorForState(),
-                        radius: isActive ? 4 : 0,
+                        radius: isActive ? (colorScheme == .dark ? 6 : 4) : 0,
                         x: 0,
                         y: isActive ? 2 : 0
                     )
@@ -193,14 +185,14 @@ struct CategoryButtonStyle: ButtonStyle {
         if isActive {
             return accentColor()
         } else if isPressed {
-            return Color.primary.opacity(0.15)
+            return Color.primary.opacity(colorScheme == .dark ? 0.2 : 0.15)
         } else {
-            return Color.primary.opacity(0.08)
+            return Color.primary.opacity(colorScheme == .dark ? 0.1 : 0.08)
         }
     }
     
     private func shadowColorForState() -> Color {
-        return isActive ? accentColor().opacity(0.4) : Color.clear
+        return isActive ? accentColor().opacity(colorScheme == .dark ? 0.6 : 0.4) : Color.clear
     }
     
     private func accentColor() -> Color {
@@ -213,6 +205,8 @@ struct CategoryButtonStyle: ButtonStyle {
 }
 
 struct StoppButtonStyle: ButtonStyle {
+    @Environment(\.colorScheme) var colorScheme
+    
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 13, weight: .medium))
@@ -222,15 +216,16 @@ struct StoppButtonStyle: ButtonStyle {
             .background {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(.red)
-                    .shadow(color: .red.opacity(0.4), radius: 4, x: 0, y: 2)
+                    .shadow(color: .red.opacity(colorScheme == .dark ? 0.6 : 0.4), radius: colorScheme == .dark ? 6 : 4, x: 0, y: 2)
             }
             .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
             .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
     }
 }
 
-// UMBENANNT von ResetButtonStyle zu MenuResetButtonStyle
 struct MenuResetButtonStyle: ButtonStyle {
+    @Environment(\.colorScheme) var colorScheme
+    
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 12, weight: .regular))
@@ -239,7 +234,13 @@ struct MenuResetButtonStyle: ButtonStyle {
             .frame(maxWidth: 220)
             .background {
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(configuration.isPressed ? Color.primary.opacity(0.15) : Color.primary.opacity(0.08))
+                    .fill(configuration.isPressed ? Color.primary.opacity(colorScheme == .dark ? 0.2 : 0.15) : Color.primary.opacity(colorScheme == .dark ? 0.1 : 0.08))
+                    .shadow(
+                        color: .black.opacity(colorScheme == .dark ? 0.2 : 0.05),
+                        radius: colorScheme == .dark ? 2 : 1,
+                        x: 0,
+                        y: 1
+                    )
             }
             .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
             .animation(.easeOut(duration: 0.1), value: configuration.isPressed)

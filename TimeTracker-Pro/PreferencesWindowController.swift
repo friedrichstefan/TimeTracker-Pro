@@ -1,43 +1,33 @@
-//
-//  PreferencesWindowController.swift
-//  TimeTracker-Pro
-//
-//  Created by Friedrich, Stefan on 13.12.25.
-//
-
 import AppKit
 import SwiftUI
 
 class PreferencesWindowController: NSWindowController {
     private var preferencesState = PreferencesState()
+    private var timeModel: TimeModel
     
     init(timeModel: TimeModel) {
+        self.timeModel = timeModel
         let contentView = PreferencesView(timeModel: timeModel, preferencesState: preferencesState)
         let hosting = NSHostingController(rootView: contentView)
 
-        // Erstelle ein modernes Fenster
+        // Fenster mit Dark/Light Mode Support
         let window = NSWindow(contentViewController: hosting)
         window.title = "TimeTracker Pro"
-        window.subtitle = "Einstellungen"
         
-        // Moderne Fenster-Eigenschaften
+        // Moderne Fenster-Eigenschaften mit Dark/Light Mode
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
         window.titlebarAppearsTransparent = true
-        window.toolbarStyle = .unifiedCompact
+        window.toolbarStyle = .unified
         
         // Größe und Position
-        window.setContentSize(NSSize(width: 800, height: 550))
-        window.minSize = NSSize(width: 700, height: 500)
+        window.setContentSize(NSSize(width: 900, height: 600))
+        window.minSize = NSSize(width: 800, height: 500)
         window.center()
         window.isReleasedWhenClosed = false
         
-        // Traffic Light Buttons (rot, gelb, grün) schöner positionieren
-        window.standardWindowButton(.closeButton)?.isHidden = false
-        window.standardWindowButton(.miniaturizeButton)?.isHidden = false
-        window.standardWindowButton(.zoomButton)?.isHidden = false
-        
-        // Moderne Hintergrund-Eigenschaften
-        window.backgroundColor = NSColor.controlBackgroundColor
+        // WICHTIG: Automatische Dark/Light Mode Unterstützung
+        window.appearance = nil  // nil = folgt dem System automatisch
+        window.backgroundColor = NSColor.windowBackgroundColor  // Passt sich automatisch an
         window.hasShadow = true
         
         super.init(window: window)
@@ -47,9 +37,19 @@ class PreferencesWindowController: NSWindowController {
         fatalError("init(coder:) has not been implemented")
     }
     
-    // NEUE METHODE HINZUGEFÜGT
     func setSelectedTab(_ tab: PrefsTab) {
         preferencesState.setSelectedTab(tab)
+    }
+    
+    // NEUE METHODE: Update für Appearance Changes
+    func updateForAppearanceChange() {
+        // Fenster-Appearance aktualisieren falls nötig
+        window?.appearance = nil
+        
+        // Content View neu zeichnen lassen
+        if let hostingController = window?.contentViewController as? NSHostingController<PreferencesView> {
+            hostingController.rootView = PreferencesView(timeModel: timeModel, preferencesState: preferencesState)
+        }
     }
     
     override func showWindow(_ sender: Any?) {

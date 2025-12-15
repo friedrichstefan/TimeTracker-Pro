@@ -12,7 +12,7 @@ struct TimeTrackerProApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
-        // WICHTIG: Settings komplett entfernen, um Konflikte zu vermeiden
+        // Verstecktes Hauptfenster für Menu Bar App
         WindowGroup {
             EmptyView()
                 .frame(width: 0, height: 0)

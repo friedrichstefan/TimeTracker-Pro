@@ -7,12 +7,13 @@
 
 import SwiftUI
 import Charts
-import Foundation  // HINZUGEFÜGT für cos/sin Funktionen
+import Foundation
 
 struct AnalyseView: View {
     @ObservedObject var timeModel: TimeModel
     @State private var selectedDate = Date()
     @State private var selectedCategory: TimerCategory = .work
+    @Environment(\.colorScheme) var colorScheme
     
     private var appUsages: [AppUsage] {
         timeModel.getAggregatedAppUsagesForDate(selectedDate, category: selectedCategory)
@@ -120,7 +121,7 @@ struct AnalyseView: View {
                             )
                         }
                     } else {
-                        // Chart und Liste - MIT HOVER-EFFEKTEN
+                        // Chart und Liste
                         VStack(spacing: 32) {
                             // Interactive Donut Chart
                             VStack(spacing: 16) {
@@ -143,7 +144,7 @@ struct AnalyseView: View {
                                 }
                             }
                             
-                            // App-Liste MIT ICONS
+                            // App-Liste
                             VStack(alignment: .leading, spacing: 16) {
                                 Text("Detailansicht")
                                     .font(.headline)
@@ -200,13 +201,14 @@ struct AnalyseView: View {
     }
 }
 
-// KORRIGIERTE INTERACTIVE DONUT CHART mit Hover-Effekten
+// Interactive Donut Chart mit Dark/Light Mode Support
 struct InteractiveDonutChartView: View {
     let appUsages: [AppUsage]
     let totalDuration: Int
     @State private var hoveredIndex: Int? = nil
     @State private var selectedAngle: Double? = nil
     @State private var appIcons: [String: NSImage] = [:]
+    @Environment(\.colorScheme) var colorScheme
     
     private var chartData: [(String, Double, Color, Int, String)] {
         let total = Double(totalDuration)
@@ -233,6 +235,12 @@ struct InteractiveDonutChartView: View {
                 )
                 .foregroundStyle(data.2)
                 .opacity(hoveredIndex == nil || hoveredIndex == index ? 0.9 : 0.5)
+                .shadow(
+                    color: hoveredIndex == index ? data.2.opacity(colorScheme == .dark ? 0.6 : 0.3) : .clear,
+                    radius: colorScheme == .dark ? 4 : 2,
+                    x: 0,
+                    y: 1
+                )
             }
             .chartAngleSelection(value: $selectedAngle)
             .onHover { isHovering in
@@ -245,12 +253,10 @@ struct InteractiveDonutChartView: View {
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
-                        // Berechne welcher Sektor gehovered wird
                         let center = CGPoint(x: 175, y: 175)
                         let vector = CGPoint(x: value.location.x - center.x, y: value.location.y - center.y)
                         let distance = sqrt(vector.x * vector.x + vector.y * vector.y)
                         
-                        // Prüfe ob in Ring-Bereich (zwischen inner und outer radius)
                         let innerRadius = 175 * 0.45
                         let outerRadius = 175 * 0.95
                         
@@ -258,8 +264,7 @@ struct InteractiveDonutChartView: View {
                             let angle = atan2(vector.y, vector.x)
                             let normalizedAngle = angle < 0 ? angle + 2 * .pi : angle
                             
-                            // Berechne kumulative Winkel für jeden Sektor
-                            var cumulativeAngle: Double = -(.pi / 2) // Start bei 12 Uhr
+                            var cumulativeAngle: Double = -(.pi / 2)
                             if cumulativeAngle < 0 { cumulativeAngle += 2 * .pi }
                             
                             for (index, data) in chartData.enumerated() {
@@ -283,31 +288,34 @@ struct InteractiveDonutChartView: View {
                         }
                     }
                     .onEnded { _ in
-                        // Hover bleibt bis explizit entfernt oder außerhalb bewegt
+                        // Hover bleibt bis explizit entfernt
                     }
             )
             
             // Center Content mit Animation und APP-ICON
             VStack(spacing: 8) {
                 if let hoveredIndex = hoveredIndex, hoveredIndex < chartData.count {
-                    // Hover-Info anzeigen MIT APP-ICON
                     let hoveredData = chartData[hoveredIndex]
                     
                     VStack(spacing: 4) {
-                        // APP-ICON statt farbiges Quadrat
                         Group {
                             if let appIcon = appIcons[hoveredData.4] {
                                 Image(nsImage: appIcon)
                                     .resizable()
                                     .aspectRatio(contentMode: .fit)
                             } else {
-                                // Fallback-Icon mit der Chart-Farbe
                                 Image(systemName: "app.fill")
                                     .foregroundStyle(hoveredData.2)
                             }
                         }
                         .frame(width: 24, height: 24)
                         .cornerRadius(5)
+                        .shadow(
+                            color: .black.opacity(colorScheme == .dark ? 0.3 : 0.1),
+                            radius: colorScheme == .dark ? 2 : 1,
+                            x: 0,
+                            y: 1
+                        )
                         
                         Text(hoveredData.0)
                             .font(.system(size: 14, weight: .semibold))
@@ -324,7 +332,6 @@ struct InteractiveDonutChartView: View {
                     }
                     .transition(.scale.combined(with: .opacity))
                 } else {
-                    // Standard Center Text
                     VStack(spacing: 4) {
                         Image(systemName: "app.fill")
                             .font(.system(size: 28))
@@ -347,7 +354,6 @@ struct InteractiveDonutChartView: View {
             .animation(.easeInOut(duration: 0.25), value: hoveredIndex)
         }
         .onTapGesture {
-            // Reset hover beim Tap außerhalb
             withAnimation(.easeOut(duration: 0.2)) {
                 hoveredIndex = nil
             }
@@ -358,7 +364,6 @@ struct InteractiveDonutChartView: View {
         }
     }
     
-    // NEUE FUNKTION: Lade alle App-Icons
     private func loadAllAppIcons() {
         for data in chartData {
             let bundleID = data.4
@@ -366,7 +371,6 @@ struct InteractiveDonutChartView: View {
         }
     }
     
-    // NEUE FUNKTION: Lade einzelnes App-Icon
     private func loadAppIcon(for bundleID: String) {
         DispatchQueue.global(qos: .background).async {
             guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
@@ -392,13 +396,15 @@ struct InteractiveDonutChartView: View {
         }
     }
 }
-// AppUsageRowView mit App-Icon
+
+// AppUsageRowView mit App-Icon und Dark/Light Mode
 struct AppUsageRowWithIconView: View {
     let usage: AppUsage
     let totalDuration: Int
     let rank: Int
     
     @State private var appIcon: NSImage?
+    @Environment(\.colorScheme) var colorScheme
     
     private var percentage: Double {
         guard totalDuration > 0 else { return 0 }
@@ -418,20 +424,25 @@ struct AppUsageRowWithIconView: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 20)
             
-            // APP-ICON statt Farbe
+            // APP-ICON
             Group {
                 if let appIcon = appIcon {
                     Image(nsImage: appIcon)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                 } else {
-                    // Fallback-Icon falls App-Icon nicht geladen werden kann
                     Image(systemName: "app.fill")
                         .foregroundStyle(.secondary)
                 }
             }
             .frame(width: 16, height: 16)
             .cornerRadius(3)
+            .shadow(
+                color: .black.opacity(colorScheme == .dark ? 0.3 : 0.1),
+                radius: colorScheme == .dark ? 1 : 0.5,
+                x: 0,
+                y: 0.5
+            )
             
             // App Info
             VStack(alignment: .leading, spacing: 2) {
@@ -463,6 +474,12 @@ struct AppUsageRowWithIconView: View {
                         Rectangle()
                             .fill(colors[(rank - 1) % colors.count])
                             .frame(width: geometry.size.width * percentage, height: 4)
+                            .shadow(
+                                color: colors[(rank - 1) % colors.count].opacity(colorScheme == .dark ? 0.6 : 0.3),
+                                radius: colorScheme == .dark ? 1 : 0.5,
+                                x: 0,
+                                y: 0.5
+                            )
                     }
                 }
                 .frame(width: 60, height: 4)
@@ -475,7 +492,6 @@ struct AppUsageRowWithIconView: View {
         }
     }
     
-    // App-Icon laden
     private func loadAppIcon() {
         DispatchQueue.global(qos: .background).async {
             guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: usage.bundleID) else {
@@ -502,10 +518,11 @@ struct AppUsageRowWithIconView: View {
     }
 }
 
-// Empty State View
+// Empty State View mit Dark/Light Mode
 struct EmptyAnalysisView: View {
     let category: TimerCategory
     let isToday: Bool
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         VStack(spacing: 16) {
@@ -527,9 +544,11 @@ struct EmptyAnalysisView: View {
     }
 }
 
-// MARK: - Button Styles
+// MARK: - Button Styles mit Dark/Light Mode
 
 struct EnableTrackingButtonStyle: ButtonStyle {
+    @Environment(\.colorScheme) var colorScheme
+    
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 14, weight: .medium))
@@ -538,20 +557,34 @@ struct EnableTrackingButtonStyle: ButtonStyle {
             .padding(.vertical, 10)
             .background(.blue, in: RoundedRectangle(cornerRadius: 8))
             .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .shadow(
+                color: .blue.opacity(colorScheme == .dark ? 0.6 : 0.3),
+                radius: colorScheme == .dark ? 4 : 2,
+                x: 0,
+                y: 1
+            )
             .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
     }
 }
 
 struct AnalyseDateNavigationButtonStyle: ButtonStyle {
+    @Environment(\.colorScheme) var colorScheme
+    
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .foregroundStyle(configuration.isPressed ? .blue : .primary)
             .frame(width: 28, height: 28)
             .background(
                 Circle()
-                    .fill(configuration.isPressed ? Color.blue.opacity(0.1) : Color.primary.opacity(0.05))
+                    .fill(configuration.isPressed ? Color.blue.opacity(0.1) : Color.primary.opacity(colorScheme == .dark ? 0.08 : 0.05))
             )
             .scaleEffect(configuration.isPressed ? 0.9 : 1.0)
+            .shadow(
+                color: .black.opacity(colorScheme == .dark ? 0.2 : 0.05),
+                radius: colorScheme == .dark ? 2 : 1,
+                x: 0,
+                y: 1
+            )
             .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
     }
 }

@@ -14,11 +14,37 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let timeModel = TimeModel()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Dynamisches Erscheinungsbild aktivieren
+        setupDynamicAppearance()
+        
         // Erstelle StatusBar mit Menu
         statusBarController = StatusBarController(timeModel: timeModel, appDelegate: self)
 
         // Main Menu mit Settings-Button
         setupMainMenu()
+    }
+    
+    // NEUE METHODE: Dynamisches Erscheinungsbild
+    private func setupDynamicAppearance() {
+        // Automatisches Dark/Light Mode switching
+        NSApp.appearance = nil // nil bedeutet "folge dem System"
+        
+        // Optional: Beobachte Änderungen des System-Erscheinungsbilds
+        DistributedNotificationCenter.default.addObserver(
+            forName: NSNotification.Name("AppleInterfaceThemeChangedNotification"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            // Wird aufgerufen wenn User zwischen Dark/Light Mode wechselt
+            self?.handleAppearanceChange()
+        }
+    }
+    
+    // NEUE METHODE: Handle Appearance Changes
+    private func handleAppearanceChange() {
+        // StatusBar und Fenster aktualisieren
+        statusBarController?.updateForAppearanceChange()
+        prefsWindowController?.updateForAppearanceChange()
     }
 
     private func setupMainMenu() {
@@ -33,9 +59,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         appMenu.addItem(withTitle: "About \(appName)", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
         appMenu.addItem(NSMenuItem.separator())
 
-        // Settings-Button WIEDER HINZUFÜGEN - aber mit unserer Custom-Methode
+        // Settings-Button
         let prefsItem = NSMenuItem(title: "Einstellungen…", action: #selector(openPreferences(_:)), keyEquivalent: ",")
-        prefsItem.target = self  // WICHTIG: Ziel auf self setzen
+        prefsItem.target = self
         appMenu.addItem(prefsItem)
 
         appMenu.addItem(NSMenuItem.separator())
@@ -44,12 +70,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         appMenuItem.submenu = appMenu
     }
 
-    // Diese Methode wird für Cmd+, UND den Menü-Button aufgerufen
     @objc func openPreferences(_ sender: Any?) {
         openPreferencesWithSettings()
     }
     
-    // Öffentliche Methoden für verschiedene Tabs
     func openPreferencesWithDetails() {
         openPreferencesWithTab(.chronik)
     }
@@ -62,21 +86,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         openPreferencesWithTab(.settings)
     }
     
-    // Private Hilfsmethode
     private func openPreferencesWithTab(_ tab: PrefsTab) {
-        // Fenster schließen falls bereits offen (verhindert Duplikate)
         prefsWindowController?.close()
         prefsWindowController = nil
         
-        // Neues Fenster erstellen
         prefsWindowController = PreferencesWindowController(timeModel: timeModel)
-        
-        // Tab setzen vor dem Anzeigen
         prefsWindowController?.setSelectedTab(tab)
         prefsWindowController?.showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
-        
-        // Fenster in den Vordergrund bringen
         prefsWindowController?.window?.makeKeyAndOrderFront(nil)
     }
 }

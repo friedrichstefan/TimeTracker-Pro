@@ -10,6 +10,7 @@ import SwiftUI
 struct ChronikView: View {
     @ObservedObject var timeModel: TimeModel
     @State private var selectedDate = Date()
+    @Environment(\.colorScheme) var colorScheme
     
     private var sessionsForSelectedDate: [TimerSession] {
         timeModel.getSessionsForDate(selectedDate)
@@ -33,22 +34,22 @@ struct ChronikView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Header mit Datum-Navigation - MEHR SPACING
-            VStack(spacing: 20) {  // ERHÖHT von 16 auf 20
+            // Header mit Datum-Navigation
+            VStack(spacing: 20) {
                 ModernSectionHeader(
                     title: "Tagesverlauf",
                     subtitle: "Chronik deiner Timer-Aktivitäten"
                 )
                 
                 // Datum-Auswahl mit mehr Platz
-                HStack(spacing: 24) {  // ERHÖHT von 16 auf 24
+                HStack(spacing: 24) {
                     Button(action: previousDay) {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 16, weight: .medium))
                     }
                     .buttonStyle(DateNavigationButtonStyle())
                     
-                    VStack(spacing: 6) {  // ERHÖHT von 4 auf 6
+                    VStack(spacing: 6) {
                         Text(formatSelectedDate())
                             .font(.headline)
                             .fontWeight(.semibold)
@@ -65,7 +66,7 @@ struct ChronikView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    .frame(minWidth: 140)  // ERHÖHT von 120 auf 140
+                    .frame(minWidth: 140)
                     
                     Button(action: nextDay) {
                         Image(systemName: "chevron.right")
@@ -87,12 +88,12 @@ struct ChronikView: View {
             }
             .padding(.horizontal, 24)
             .padding(.top, 24)
-            .padding(.bottom, 8)  // HINZUGEFÜGT - Extra Platz nach unten
+            .padding(.bottom, 8)
             
             ScrollView {
-                VStack(alignment: .leading, spacing: 28) {  // ERHÖHT von 24 auf 28
+                VStack(alignment: .leading, spacing: 28) {
                     // Statistik-Karten
-                    HStack(spacing: 20) {  // ERHÖHT von 16 auf 20
+                    HStack(spacing: 20) {
                         StatisticCard(
                             title: "Gesamtzeit",
                             value: formatTime(totalTimeForDate),
@@ -145,7 +146,7 @@ struct ChronikView: View {
                     }
                 }
                 .padding(.horizontal, 24)
-                .padding(.top, 16)  // HINZUGEFÜGT - Extra Platz nach oben
+                .padding(.top, 16)
                 .padding(.bottom, 24)
             }
         }
@@ -185,12 +186,12 @@ struct ChronikView: View {
     }
 }
 
-// Rest der Views bleibt unverändert...
 struct StatisticCard: View {
     let title: String
     let value: String
     let color: Color
     let icon: String
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -218,11 +219,18 @@ struct StatisticCard: View {
             RoundedRectangle(cornerRadius: 10)
                 .stroke(color.opacity(0.2), lineWidth: 0.5)
         )
+        .shadow(
+            color: .black.opacity(colorScheme == .dark ? 0.2 : 0.05),
+            radius: colorScheme == .dark ? 4 : 2,
+            x: 0,
+            y: 1
+        )
     }
 }
 
 struct TimelineView: View {
     let sessions: [TimerSession]
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         LazyVStack(spacing: 0) {
@@ -239,6 +247,7 @@ struct TimelineView: View {
 struct TimelineRowView: View {
     let session: TimerSession
     let isLast: Bool
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         HStack(spacing: 16) {
@@ -247,10 +256,16 @@ struct TimelineRowView: View {
                 Circle()
                     .fill(colorForCategory(session.category))
                     .frame(width: 12, height: 12)
+                    .shadow(
+                        color: colorForCategory(session.category).opacity(colorScheme == .dark ? 0.6 : 0.3),
+                        radius: colorScheme == .dark ? 3 : 2,
+                        x: 0,
+                        y: 1
+                    )
                 
                 if !isLast {
                     Rectangle()
-                        .fill(Color.secondary.opacity(0.2))
+                        .fill(Color.secondary.opacity(colorScheme == .dark ? 0.3 : 0.2))
                         .frame(width: 2, height: 60)
                 }
             }
@@ -299,6 +314,12 @@ struct TimelineRowView: View {
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
                         .background(colorForCategory(session.category), in: Capsule())
+                        .shadow(
+                            color: colorForCategory(session.category).opacity(colorScheme == .dark ? 0.5 : 0.3),
+                            radius: colorScheme == .dark ? 2 : 1,
+                            x: 0,
+                            y: 1
+                        )
                 }
                 
                 Divider()
@@ -339,6 +360,7 @@ struct TimelineRowView: View {
 struct EmptyDayView: View {
     let date: Date
     let isToday: Bool
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         VStack(spacing: 16) {
@@ -360,23 +382,33 @@ struct EmptyDayView: View {
     }
 }
 
-// MARK: - Button Styles
+// MARK: - Button Styles mit Dark/Light Mode
 
 struct DateNavigationButtonStyle: ButtonStyle {
+    @Environment(\.colorScheme) var colorScheme
+    
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .foregroundStyle(configuration.isPressed ? .blue : .primary)
             .frame(width: 32, height: 32)
             .background(
                 Circle()
-                    .fill(configuration.isPressed ? Color.blue.opacity(0.1) : Color.primary.opacity(0.05))
+                    .fill(configuration.isPressed ? Color.blue.opacity(0.1) : Color.primary.opacity(colorScheme == .dark ? 0.08 : 0.05))
             )
             .scaleEffect(configuration.isPressed ? 0.9 : 1.0)
+            .shadow(
+                color: .black.opacity(colorScheme == .dark ? 0.3 : 0.1),
+                radius: colorScheme == .dark ? 3 : 1,
+                x: 0,
+                y: 1
+            )
             .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
     }
 }
 
 struct TodayButtonStyle: ButtonStyle {
+    @Environment(\.colorScheme) var colorScheme
+    
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 13, weight: .medium))
@@ -389,11 +421,19 @@ struct TodayButtonStyle: ButtonStyle {
                     .stroke(Color.blue.opacity(0.5), lineWidth: 1)
             )
             .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .shadow(
+                color: .blue.opacity(colorScheme == .dark ? 0.4 : 0.2),
+                radius: colorScheme == .dark ? 2 : 1,
+                x: 0,
+                y: 1
+            )
             .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
     }
 }
 
 struct ClearButtonStyle: ButtonStyle {
+    @Environment(\.colorScheme) var colorScheme
+    
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 12, weight: .regular))
@@ -406,6 +446,12 @@ struct ClearButtonStyle: ButtonStyle {
                     .stroke(Color.red.opacity(0.3), lineWidth: 0.5)
             )
             .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .shadow(
+                color: .red.opacity(colorScheme == .dark ? 0.4 : 0.2),
+                radius: colorScheme == .dark ? 2 : 1,
+                x: 0,
+                y: 1
+            )
             .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
     }
 }
