@@ -30,8 +30,8 @@ struct ChronikView: View {
             // Header mit Datum-Navigation
             VStack(spacing: 20) {
                 ModernSectionHeader(
-                    title: "Tagesverlauf",
-                    subtitle: "Chronik deiner Timer-Aktivitäten"
+                    title: "timeline.title".localized,
+                    subtitle: "timeline.subtitle".localized
                 )
                 
                 DateNavigationHeader(

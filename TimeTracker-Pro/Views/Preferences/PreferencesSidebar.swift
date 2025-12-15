@@ -30,7 +30,7 @@ struct PreferencesSidebar: View {
             }
         }
         .listStyle(.sidebar)
-        .navigationTitle("Einstellungen")
+        .navigationTitle("preferences.title".localized)
     }
 }
 

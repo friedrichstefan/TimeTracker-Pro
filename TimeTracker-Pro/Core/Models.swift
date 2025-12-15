@@ -17,9 +17,9 @@ enum TimerCategory: String, CaseIterable, Codable {
     
     var displayName: String {
         switch self {
-        case .work: return "Arbeiten"
-        case .coffee: return "Kaffeepause"
-        case .lunch: return "Mittagessen"
+        case .work: return "timer.work".localized
+        case .coffee: return "timer.coffee".localized
+        case .lunch: return "timer.lunch".localized
         }
     }
     

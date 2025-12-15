@@ -42,7 +42,7 @@ struct MenuTimerView: View {
                     }
                 }
                 
-                Text(timeModel.isTimerRunning ? "LÄUFT" : "BEREIT")
+                Text(timeModel.isTimerRunning ? "timer.running".localized : "timer.ready".localized)
                     .font(.caption2)
                     .foregroundStyle(timeModel.isTimerRunning ? .blue : .secondary)
                     .textCase(.uppercase)
@@ -56,7 +56,7 @@ struct MenuTimerView: View {
             if timeModel.workTimeMonitoringEnabled {
                 VStack(spacing: 8) {
                     HStack {
-                        Text("Heute gearbeitet")
+                        Text("timeline.today".localized)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         
@@ -117,7 +117,7 @@ struct MenuTimerView: View {
             // Stopp/Reset Bereich
             VStack(spacing: 8) {
                 if timeModel.isTimerRunning {
-                    Button("Stopp") {
+                    Button("timer.stop".localized) {
                         timeModel.stopTimer()
                     }
                     .buttonStyle(StoppButtonStyle())

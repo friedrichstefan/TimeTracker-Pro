@@ -62,8 +62,8 @@ private struct AnalysisHeader: View {
     var body: some View {
         VStack(spacing: 16) {
             ModernSectionHeader(
-                title: "App-Analyse",
-                subtitle: "Verwendete Apps während der Timer-Sessions"
+                title: "analysis.title".localized,
+                subtitle: "analysis.subtitle".localized
             )
             
             // Controls

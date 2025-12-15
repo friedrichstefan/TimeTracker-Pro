@@ -9,10 +9,10 @@ enum PrefsTab: String, CaseIterable, Hashable {
     
     var title: String {
         switch self {
-        case .timerDetails: return "Timer-Details"
-        case .chronik: return "Tagesverlauf"
-        case .analyse: return "App-Analyse"
-        case .settings: return "Einstellungen"
+        case .timerDetails: return "timer.details".localized
+        case .chronik: return "timeline".localized
+        case .analyse: return "analysis.title".localized
+        case .settings: return "settings".localized
         }
     }
     

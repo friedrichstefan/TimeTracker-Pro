@@ -15,8 +15,8 @@ struct SettingsPane: View {
             VStack(alignment: .leading, spacing: 24) {
                 // Header
                 ModernSectionHeader(
-                    title: "Einstellungen",
-                    subtitle: "Konfiguration für Arbeitszeit und App-Tracking"
+                    title: "settings".localized,
+                    subtitle: "Konfiguration für Arbeitszeit und App-Tracking" // Kann deutsch bleiben
                 )
 
                 // Setting Cards
