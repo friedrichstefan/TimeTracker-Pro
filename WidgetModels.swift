@@ -8,57 +8,25 @@
 import Foundation
 import SwiftUI
 
-// MARK: - Widget Timer Category
-
-public enum WidgetTimerCategory: String, CaseIterable, Codable {
-    case work = "work"
-    case coffee = "coffee"
-    case lunch = "lunch"
-    
-    public var displayName: String {
-        switch self {
-        case .work: return "Arbeit"
-        case .coffee: return "Kaffee"
-        case .lunch: return "Mittag"
-        }
-    }
-    
-    public var symbol: String {
-        switch self {
-        case .work: return "💼"
-        case .coffee: return "☕️"
-        case .lunch: return "🍽️"
-        }
-    }
-    
-    public var color: Color {
-        switch self {
-        case .work: return .blue
-        case .coffee: return .orange
-        case .lunch: return .green
-        }
-    }
-}
-
 // MARK: - Widget Timer Data
 
-public struct WidgetTimerData: Codable {
-    public let workSeconds: Int
-    public let coffeeSeconds: Int
-    public let lunchSeconds: Int
-    public let isTimerRunning: Bool
-    public let activeCategory: WidgetTimerCategory?
-    public let targetWorkHours: Int
-    public let todayWorkSeconds: Int
-    public let lastUpdate: Date
+struct WidgetTimerData: Codable {
+    let workSeconds: Int
+    let coffeeSeconds: Int
+    let lunchSeconds: Int
+    let isTimerRunning: Bool
+    let activeCategory: TimerCategory?
+    let targetWorkHours: Double
+    let todayWorkSeconds: Int
+    let lastUpdate: Date
     
-    public init(
+    init(
         workSeconds: Int = 0,
         coffeeSeconds: Int = 0,
         lunchSeconds: Int = 0,
         isTimerRunning: Bool = false,
-        activeCategory: WidgetTimerCategory? = nil,
-        targetWorkHours: Int = 8,
+        activeCategory: TimerCategory? = nil,
+        targetWorkHours: Double = 8.0,
         todayWorkSeconds: Int = 0,
         lastUpdate: Date = Date()
     ) {
@@ -72,25 +40,30 @@ public struct WidgetTimerData: Codable {
         self.lastUpdate = lastUpdate
     }
     
-    public var workProgress: Double {
+    var workProgress: Double {
         guard targetWorkHours > 0 else { return 0 }
-        return min(1.0, Double(todayWorkSeconds) / Double(targetWorkHours * 3600))
+        return min(1.0, Double(todayWorkSeconds) / (targetWorkHours * 3600))
     }
 }
 
 // MARK: - Widget Data Manager
 
-public class WidgetDataManager {
-    public static let shared = WidgetDataManager()
+class WidgetDataManager {
+    static let shared = WidgetDataManager()
     
     private let suiteName = "group.stefan.timetracker.pro"
     private let dataKey = "widget_timer_data"
     
+    // WICHTIG: UserDefaults als lazy property
+    private lazy var sharedDefaults: UserDefaults? = {
+        return UserDefaults(suiteName: suiteName)
+    }()
+    
     private init() {}
     
-    public func saveTimerData(_ data: WidgetTimerData) {
-        guard let userDefaults = UserDefaults(suiteName: suiteName) else {
-            print("❌ Widget: App Group nicht verfügbar")
+    func saveTimerData(_ data: WidgetTimerData) {
+        guard let userDefaults = sharedDefaults else {
+            print("❌ Widget: App Group '\(suiteName)' nicht verfügbar")
             return
         }
         
@@ -98,23 +71,59 @@ public class WidgetDataManager {
             let encoded = try JSONEncoder().encode(data)
             userDefaults.set(encoded, forKey: dataKey)
             userDefaults.synchronize()
-            print("✅ Widget: Daten gespeichert")
+            print("✅ Widget: Daten gespeichert für Gruppe '\(suiteName)'")
         } catch {
             print("❌ Widget: Fehler beim Speichern - \(error)")
         }
     }
     
-    public func loadTimerData() -> WidgetTimerData {
-        guard let userDefaults = UserDefaults(suiteName: suiteName),
-              let data = userDefaults.data(forKey: dataKey) else {
-            return WidgetTimerData()
+    func loadTimerData() -> WidgetTimerData {
+        guard let userDefaults = sharedDefaults else {
+            print("❌ Widget: App Group '\(suiteName)' nicht verfügbar - Verwende Fallback")
+            return createFallbackData()
+        }
+        
+        guard let data = userDefaults.data(forKey: dataKey) else {
+            print("ℹ️ Widget: Keine gespeicherten Daten in App Group - Verwende Fallback")
+            return createFallbackData()
         }
         
         do {
             let decoded = try JSONDecoder().decode(WidgetTimerData.self, from: data)
+            print("✅ Widget: Daten erfolgreich aus App Group geladen")
             return decoded
         } catch {
-            return WidgetTimerData()
+            print("❌ Widget: Fehler beim Dekodieren - \(error) - Verwende Fallback")
+            return createFallbackData()
+        }
+    }
+    
+    // Fallback-Daten wenn App Group nicht funktioniert
+    private func createFallbackData() -> WidgetTimerData {
+        return WidgetTimerData(
+            workSeconds: 0,
+            coffeeSeconds: 0,
+            lunchSeconds: 0,
+            isTimerRunning: false,
+            activeCategory: nil,
+            targetWorkHours: 8.0,
+            todayWorkSeconds: 0,
+            lastUpdate: Date()
+        )
+    }
+    
+    // Debug-Funktion
+    func debugAppGroup() {
+        if let userDefaults = sharedDefaults {
+            userDefaults.set("test_\(Date().timeIntervalSince1970)", forKey: "debug_test")
+            let success = userDefaults.synchronize()
+            print("🐛 App Group Debug: \(success ? "✅ Funktioniert" : "❌ Fehler")")
+            
+            if let testValue = userDefaults.string(forKey: "debug_test") {
+                print("🐛 Geschriebener Wert: \(testValue)")
+            }
+        } else {
+            print("🐛 App Group Debug: UserDefaults ist nil")
         }
     }
 }

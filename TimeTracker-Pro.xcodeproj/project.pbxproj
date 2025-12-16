@@ -78,6 +78,13 @@
 			);
 			target = 39C29DB32EF1E0D8004E6291 /* TimeTrackerWidgetsExtension */;
 		};
+		39C29DD82EF1F7BE004E6291 /* Exceptions for "TimeTracker-Pro" folder in "TimeTrackerWidgetsExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Core/Models.swift,
+			);
+			target = 39C29DB32EF1E0D8004E6291 /* TimeTrackerWidgetsExtension */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -85,6 +92,7 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				398BDBBD2EF0AAA40088DADA /* Exceptions for "TimeTracker-Pro" folder in "TimeTracker-Pro" target */,
+				39C29DD82EF1F7BE004E6291 /* Exceptions for "TimeTracker-Pro" folder in "TimeTrackerWidgetsExtension" target */,
 			);
 			path = "TimeTracker-Pro";
 			sourceTree = "<group>";

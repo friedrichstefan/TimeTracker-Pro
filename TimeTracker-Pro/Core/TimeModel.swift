@@ -455,23 +455,14 @@ extension TimeModel {
 
 // MARK: - Widget Integration
 extension TimeModel {
-    private func convertToWidgetCategory(_ category: TimerCategory?) -> WidgetTimerCategory? {
-        guard let category = category else { return nil }
-        switch category {
-        case .work: return .work
-        case .coffee: return .coffee
-        case .lunch: return .lunch
-        }
-    }
-    
     func updateWidgetData() {
         let widgetData = WidgetTimerData(
             workSeconds: workSeconds,
             coffeeSeconds: coffeeSeconds,
             lunchSeconds: lunchSeconds,
             isTimerRunning: isTimerRunning,
-            activeCategory: convertToWidgetCategory(activeCategory),
-            targetWorkHours: targetWorkHours,
+            activeCategory: activeCategory,  // Direktes activeCategory verwenden (kein Convert nötig)
+            targetWorkHours: Double(targetWorkHours),
             todayWorkSeconds: getWorkTimeForDate(Date()),
             lastUpdate: Date()
         )
@@ -480,7 +471,6 @@ extension TimeModel {
         WidgetCenter.shared.reloadAllTimelines()
     }
 }
-
 // MARK: - Private Helper Methods
 
 private extension TimeModel {

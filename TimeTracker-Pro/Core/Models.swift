@@ -8,6 +8,7 @@
 import Foundation
 import SwiftUI
 
+
 // MARK: - TimerCategory
 
 enum TimerCategory: String, CaseIterable, Codable {
@@ -17,9 +18,9 @@ enum TimerCategory: String, CaseIterable, Codable {
     
     var displayName: String {
         switch self {
-        case .work: return "timer.work".localized
-        case .coffee: return "timer.coffee".localized
-        case .lunch: return "timer.lunch".localized
+        case .work: return NSLocalizedString("timer.work", comment: "Work timer category")
+        case .coffee: return NSLocalizedString("timer.coffee", comment: "Coffee break timer category")
+        case .lunch: return NSLocalizedString("timer.lunch", comment: "Lunch break timer category")
         }
     }
     
@@ -43,14 +44,15 @@ enum TimerCategory: String, CaseIterable, Codable {
 // MARK: - AppUsage
 
 struct AppUsage: Identifiable, Codable {
-    let id = UUID()
+    let id: UUID
     let bundleID: String
     let appName: String
     let duration: Int // in Sekunden
     let category: TimerCategory
     let date: Date
     
-    init(bundleID: String, appName: String, duration: Int, category: TimerCategory, date: Date) {
+    init(id: UUID = UUID(), bundleID: String, appName: String, duration: Int, category: TimerCategory, date: Date) {
+        self.id = id
         self.bundleID = bundleID
         self.appName = appName
         self.duration = duration

@@ -26,7 +26,7 @@ struct MediumWidgetView: View {
                     // Status Indikator
                     HStack(spacing: 4) {
                         Circle()
-                            .fill(entry.timerData.isTimerRunning ? Color.green : Color.gray.opacity(0.5))
+                            .fill(entry.timerData.isTimerRunning ? .green : .gray.opacity(0.5))
                             .frame(width: 6, height: 6)
                         
                         Text(entry.timerData.isTimerRunning ? "LIVE" : "IDLE")
@@ -62,7 +62,7 @@ struct MediumWidgetView: View {
                         // Tagesübersicht
                         HStack(spacing: 8) {
                             RoundedRectangle(cornerRadius: 4)
-                                .fill(Color.blue)
+                                .fill(.blue)
                                 .frame(width: 4, height: 24)
                             
                             VStack(alignment: .leading, spacing: 1) {
@@ -123,7 +123,7 @@ struct MediumWidgetView: View {
                     
                     // Verbleibende Zeit UNTER dem Fortschrittsbalken (wenn nicht 100% erreicht)
                     if entry.timerData.workProgress < 1.0 {
-                        let remaining = (entry.timerData.targetWorkHours * 3600) - entry.timerData.todayWorkSeconds
+                        let remaining = (Int(entry.timerData.targetWorkHours) * 3600) - entry.timerData.todayWorkSeconds
                         HStack {
                             Text("VERBLEIBEND:")
                                 .font(.system(size: 9, weight: .medium))
@@ -201,7 +201,7 @@ struct MediumWidgetView: View {
     }
 }
 
-// MARK: - Stat Row Component
+// MARK: - Stat Row Component (Vereinfacht)
 
 struct StatRow: View {
     let label: String
@@ -237,8 +237,10 @@ struct StatRow: View {
     }
 }
 
-#Preview {
-    MediumWidgetView(entry: TimerEntry(
+#Preview(as: .systemMedium) {
+    TimeTrackerWidgets()
+} timeline: {
+    TimerEntry(
         date: Date(),
         timerData: WidgetTimerData(
             workSeconds: 14400,
@@ -247,6 +249,5 @@ struct StatRow: View {
             isTimerRunning: true,
             activeCategory: .work
         )
-    ))
-    .previewContext(WidgetPreviewContext(family: .systemMedium))
+    )
 }
