@@ -10,6 +10,7 @@ import Combine
 import AppKit
 import UniformTypeIdentifiers
 import UserNotifications
+import WidgetKit
 
 final class TimeModel: ObservableObject {
     // MARK: - Clock Properties
@@ -229,6 +230,11 @@ extension TimeModel {
             }
         }
         RunLoop.current.add(countdownTimer!, forMode: .common)
+        
+        // Widget Update
+        DispatchQueue.main.async {
+            self.updateWidgetData()
+        }
     }
     
     func stopTimer() {
@@ -272,6 +278,12 @@ extension TimeModel {
         currentSession = nil
         currentAppUsages.removeAll()
         saveTimerSessions()
+        
+        // Widget Update
+        DispatchQueue.main.async {
+            self.updateWidgetData()
+        }
+        
     }
     
     func resetAllTimers() {
@@ -283,6 +295,11 @@ extension TimeModel {
         UserDefaults.standard.set(0, forKey: UserDefaultsKeys.workSeconds)
         UserDefaults.standard.set(0, forKey: UserDefaultsKeys.coffeeSeconds)
         UserDefaults.standard.set(0, forKey: UserDefaultsKeys.lunchSeconds)
+        
+        // Widget Update
+        DispatchQueue.main.async {
+            self.updateWidgetData()
+        }
     }
     
     func getCurrentTimerSeconds() -> Int {
@@ -433,6 +450,34 @@ extension TimeModel {
     
     func dismissResumeRequest() {
         print("User dismissed resume request")
+    }
+}
+
+// MARK: - Widget Integration
+extension TimeModel {
+    private func convertToWidgetCategory(_ category: TimerCategory?) -> WidgetTimerCategory? {
+        guard let category = category else { return nil }
+        switch category {
+        case .work: return .work
+        case .coffee: return .coffee
+        case .lunch: return .lunch
+        }
+    }
+    
+    func updateWidgetData() {
+        let widgetData = WidgetTimerData(
+            workSeconds: workSeconds,
+            coffeeSeconds: coffeeSeconds,
+            lunchSeconds: lunchSeconds,
+            isTimerRunning: isTimerRunning,
+            activeCategory: convertToWidgetCategory(activeCategory),
+            targetWorkHours: targetWorkHours,
+            todayWorkSeconds: getWorkTimeForDate(Date()),
+            lastUpdate: Date()
+        )
+        
+        WidgetDataManager.shared.saveTimerData(widgetData)
+        WidgetCenter.shared.reloadAllTimelines()
     }
 }
 
