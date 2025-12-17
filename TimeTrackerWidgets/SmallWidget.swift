@@ -17,104 +17,80 @@ struct SmallWidgetView: View {
             // Header mit Status
             HStack {
                 Text("TimeTracker Pro")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.primary)
                 
                 Spacer()
                 
                 // Status Indikator
-                HStack(spacing: 3) {
-                    Circle()
-                        .fill(entry.timerData.isTimerRunning ? .green : .gray.opacity(0.5))
-                        .frame(width: 5, height: 5)
-                    
-                    Text(entry.timerData.isTimerRunning ? "LIVE" : "IDLE")
-                        .font(.system(size: 7, weight: .bold))
-                        .foregroundColor(entry.timerData.isTimerRunning ? .green : .secondary)
-                        .textCase(.uppercase)
-                        .tracking(0.5)
-                }
+                Circle()
+                    .fill(entry.timerData.isTimerRunning ? .green : .secondary)
+                    .frame(width: 6, height: 6)
             }
             
             // Hauptzeit-Display
-            VStack(spacing: 6) {
+            VStack(spacing: 4) {
                 if let activeCategory = entry.timerData.activeCategory, entry.timerData.isTimerRunning {
                     // Aktive Kategorie
-                    HStack(spacing: 6) {
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(activeCategory.color)
-                            .frame(width: 3, height: 20)
+                    HStack(spacing: 8) {
+                        Text(activeCategory.symbol)
+                            .font(.title2)
                         
-                        VStack(alignment: .leading, spacing: 1) {
+                        VStack(alignment: .leading, spacing: 2) {
                             Text(activeCategory.displayName.uppercased())
                                 .font(.system(size: 9, weight: .medium))
                                 .foregroundColor(.secondary)
-                                .tracking(0.6)
                             
                             Text(formatTimer(entry.timerData.workSeconds))
                                 .font(.system(size: 16, weight: .bold, design: .monospaced))
-                                .foregroundColor(.primary)
-                                .minimumScaleFactor(0.8)
+                                .foregroundColor(activeCategory.color)
                         }
+                        
+                        Spacer()
                     }
                 } else {
                     // Tagesübersicht
-                    HStack(spacing: 6) {
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(.blue)
-                            .frame(width: 3, height: 20)
+                    VStack(spacing: 4) {
+                        Text("HEUTE")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.secondary)
                         
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text("HEUTE GESAMT")
-                                .font(.system(size: 8, weight: .medium))
-                                .foregroundColor(.secondary)
-                                .tracking(0.6)
-                            
-                            Text(formatTime(entry.timerData.todayWorkSeconds))
-                                .font(.system(size: 14, weight: .bold, design: .monospaced))
-                                .foregroundColor(.blue)
-                                .minimumScaleFactor(0.8)
-                        }
+                        Text(formatTime(entry.timerData.todayWorkSeconds))
+                            .font(.system(size: 18, weight: .bold, design: .monospaced))
+                            .foregroundColor(.blue)
                     }
                 }
             }
             
-            Spacer(minLength: 4)
+            Spacer()
             
             // Fortschrittsbalken
-            VStack(spacing: 3) {
+            VStack(spacing: 4) {
                 HStack {
-                    Text("TAGESZIEL")
-                        .font(.system(size: 8, weight: .medium))
+                    Text("\(Int(entry.timerData.workProgress * 100))% Tagesziel")
+                        .font(.system(size: 9, weight: .medium))
                         .foregroundColor(.secondary)
-                        .tracking(0.4)
                     
                     Spacer()
-                    
-                    Text("\(Int(entry.timerData.workProgress * 100))%")
-                        .font(.system(size: 9, weight: .bold, design: .monospaced))
-                        .foregroundColor(entry.timerData.workProgress >= 1.0 ? .green : .blue)
                 }
                 
-                // Fortschrittsbalken
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(Color.primary.opacity(colorScheme == .dark ? 0.1 : 0.08))
-                        .frame(height: 4)
-                    
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(
-                            LinearGradient(
-                                colors: entry.timerData.workProgress >= 1.0 ?
-                                    [Color.green, Color.green.opacity(0.8)] :
-                                    [Color.blue, Color.blue.opacity(0.8)],
-                                startPoint: .leading,
-                                endPoint: .trailing
+                // Progress Bar
+                GeometryReader { geometry in
+                    ZStack(alignment: .leading) {
+                        Rectangle()
+                            .fill(.quaternary)
+                            .frame(height: 3)
+                        
+                        Rectangle()
+                            .fill(entry.timerData.workProgress >= 1.0 ? .green : .blue)
+                            .frame(
+                                width: geometry.size.width * entry.timerData.workProgress,
+                                height: 3
                             )
-                        )
-                        .frame(width: (120 * entry.timerData.workProgress), height: 4)
+                    }
+                    .clipShape(Capsule())
                 }
-                .frame(width: 120)
+                .frame(height: 3)
             }
         }
         .padding(12)

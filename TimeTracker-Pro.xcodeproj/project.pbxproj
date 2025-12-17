@@ -10,8 +10,6 @@
 		39C29DB72EF1E0D8004E6291 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 39C29DB62EF1E0D8004E6291 /* WidgetKit.framework */; };
 		39C29DB92EF1E0D8004E6291 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 39C29DB82EF1E0D8004E6291 /* SwiftUI.framework */; };
 		39C29DC42EF1E0DA004E6291 /* TimeTrackerWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 39C29DB42EF1E0D8004E6291 /* TimeTrackerWidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		39C29DCD2EF1E15F004E6291 /* WidgetModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39C29DCC2EF1E15E004E6291 /* WidgetModels.swift */; };
-		39C29DCE2EF1E16A004E6291 /* WidgetModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39C29DCC2EF1E15E004E6291 /* WidgetModels.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -60,7 +58,6 @@
 		39C29DB62EF1E0D8004E6291 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		39C29DB82EF1E0D8004E6291 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		39C29DCB2EF1E127004E6291 /* TimeTrackerWidgetsExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TimeTrackerWidgetsExtension.entitlements; sourceTree = "<group>"; };
-		39C29DCC2EF1E15E004E6291 /* WidgetModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetModels.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -82,6 +79,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Core/Models.swift,
+				WidgetModels.swift,
 			);
 			target = 39C29DB32EF1E0D8004E6291 /* TimeTrackerWidgetsExtension */;
 		};
@@ -154,7 +152,6 @@
 		393308C82EEDC17D0090226E = {
 			isa = PBXGroup;
 			children = (
-				39C29DCC2EF1E15E004E6291 /* WidgetModels.swift */,
 				39C29DCB2EF1E127004E6291 /* TimeTrackerWidgetsExtension.entitlements */,
 				393308D32EEDC17D0090226E /* TimeTracker-Pro */,
 				393308E12EEDC17F0090226E /* TimeTracker-ProTests */,
@@ -365,7 +362,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				39C29DCD2EF1E15F004E6291 /* WidgetModels.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -387,7 +383,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				39C29DCE2EF1E16A004E6291 /* WidgetModels.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
